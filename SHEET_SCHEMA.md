@@ -28,6 +28,8 @@
 
 ## Users
 
+사용자 로그인/본인 확인은 기본적으로 Users 시트의 `name` + `phoneLast4` 조합으로 확인한다. 동명이인 또는 전화번호 뒤 4자리 중복으로 동일 조건의 사용자가 여러 명 조회되면 `name` + `phone` 전체 전화번호로 추가 확인해야 한다. Users 시트에 없는 사람은 공간 예약 및 모임 신청을 할 수 없다.
+
 | Column | Type | Description |
 |---|---|---|
 | userId | string | 참여자 ID |
