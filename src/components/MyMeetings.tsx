@@ -50,6 +50,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                   const space = spaces.find((item) => item.id === session.spaceId);
                   const isEditing = editingSession?.sessionId === session.id;
                   const editValues = isEditing ? editingSession.values : sessionToEditValues(session);
+                  const editSpace = spaces.find((item) => item.id === editValues.spaceId);
                   const editValidation = validateReservationSave({
                     user,
                     meetingId: meeting.id,
@@ -60,6 +61,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                     meetings,
                     sessions,
                     adminBlocks,
+                    operatingHours: editSpace?.operatingHours ?? [],
                     excludeSessionId: session.id,
                   });
                   return (

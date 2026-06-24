@@ -3,6 +3,22 @@ export type UserLevel = 1 | 2;
 export type MeetingStatus = "draft" | "submitted" | "approved" | "rejected";
 export type SessionStatus = "requested" | "confirmed" | "cancelled";
 
+export type OperatingHour = {
+  readonly dayOfWeek: number;
+  readonly openTime: string;
+  readonly closeTime: string;
+  readonly isClosed: boolean;
+};
+
+export type Admin = {
+  readonly id: string;
+  readonly name: string;
+  readonly phone: string;
+  readonly phoneLast4: string;
+  readonly role: string;
+  readonly isActive: boolean;
+};
+
 export type Space = {
   readonly id: string;
   readonly name: string;
@@ -11,6 +27,7 @@ export type Space = {
   readonly description: string;
   readonly imageUrl: string;
   readonly features: readonly string[];
+  readonly operatingHours: readonly OperatingHour[];
   readonly isActive: boolean;
   readonly sortOrder: number;
 };
