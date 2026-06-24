@@ -1,0 +1,47 @@
+import { LEVEL_MAX_BLOCKS } from "./settings";
+import type { ParticipantUser } from "../types/reservation";
+
+export const initialUsers: readonly ParticipantUser[] = [
+  {
+    id: "user-1",
+    name: "김라임",
+    phone: "010-1234-5678",
+    phoneLast4: "5678",
+    level: 2,
+    hasPlan: true,
+    hasBudget: true,
+    hasPromotion: true,
+    hasAdminApproval: true,
+    maxBlocks: LEVEL_MAX_BLOCKS[2],
+    memo: "생활 기록 모임 운영자",
+    isActive: true,
+  },
+  {
+    id: "user-2",
+    name: "이모임",
+    phone: "010-2222-9341",
+    phoneLast4: "9341",
+    level: 1,
+    hasPlan: true,
+    hasBudget: false,
+    hasPromotion: true,
+    hasAdminApproval: false,
+    maxBlocks: LEVEL_MAX_BLOCKS[1],
+    memo: "예산안 보완 필요",
+    isActive: true,
+  },
+  {
+    id: "user-3",
+    name: "박생활",
+    phone: "010-9876-1204",
+    phoneLast4: "1204",
+    level: 1,
+    hasPlan: true,
+    hasBudget: true,
+    hasPromotion: true,
+    hasAdminApproval: true,
+    maxBlocks: LEVEL_MAX_BLOCKS[1],
+    memo: "신규 승인 완료",
+    isActive: true,
+  },
+];

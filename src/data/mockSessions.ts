@@ -1,0 +1,43 @@
+import type { ReservationSession } from "../types/reservation";
+
+export const initialSessions: readonly ReservationSession[] = [
+  {
+    id: "session-1",
+    meetingId: "meeting-1",
+    sessionIndex: 1,
+    spaceId: "lifestyle-1",
+    date: "2026-06-27",
+    startTime: "10:00",
+    endTime: "12:00",
+    blockCount: 4,
+    status: "confirmed",
+    createdAt: "2026-06-15T09:05:00.000Z",
+    updatedAt: "2026-06-15T09:05:00.000Z",
+  },
+  {
+    id: "session-2",
+    meetingId: "meeting-1",
+    sessionIndex: 2,
+    spaceId: "lifestyle-1",
+    date: "2026-07-04",
+    startTime: "10:00",
+    endTime: "12:00",
+    blockCount: 4,
+    status: "confirmed",
+    createdAt: "2026-06-15T09:07:00.000Z",
+    updatedAt: "2026-06-15T09:07:00.000Z",
+  },
+  {
+    id: "session-3",
+    meetingId: "meeting-2",
+    sessionIndex: 1,
+    spaceId: "multi-room-1",
+    date: "2026-06-28",
+    startTime: "14:00",
+    endTime: "15:00",
+    blockCount: 2,
+    status: "requested",
+    createdAt: "2026-06-18T11:00:00.000Z",
+    updatedAt: "2026-06-18T11:00:00.000Z",
+  },
+];
