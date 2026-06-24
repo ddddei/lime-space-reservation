@@ -15,10 +15,10 @@ type MeetingFormProps = {
 
 export function MeetingForm(props: MeetingFormProps) {
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4">
       <div className="mb-4">
-        <h2 className="text-lg font-bold text-[#172014]">모임 신청 폼</h2>
-        <p className="text-sm text-[#5B6856]">한 회차는 하나의 신청 세션으로 저장되고, 한 모임은 최대 6회차까지 준비되어 있습니다.</p>
+        <h2 className="text-xl font-black text-[#172014]">모임을 시작할 준비</h2>
+        <p className="mt-1 text-sm text-[#5B6856]">짧게 남겨도 충분합니다. 운영 규칙은 저장 직전에 다시 확인합니다.</p>
       </div>
       <div className="grid gap-3">
         <label className="grid gap-1 text-sm font-bold text-[#172014]">
@@ -45,9 +45,9 @@ export function MeetingForm(props: MeetingFormProps) {
           />
         </label>
       </div>
-      <div className="mt-4 rounded-lg bg-[#F7FBF4] p-3 text-sm text-[#5B6856]">
-        예약 요청 시간:{" "}
-        <strong className="text-[#172014]">
+      <div className="mt-4 rounded-[18px] bg-[#F7FBF4] p-4 text-sm text-[#5B6856]">
+        선택 시간{" "}
+        <strong className="block pt-1 text-lg text-[#172014]">
           {props.selectedRange === undefined ? "시간을 선택해 주세요." : props.selectedRange.label}
         </strong>
       </div>

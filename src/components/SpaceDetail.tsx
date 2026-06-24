@@ -4,33 +4,27 @@ type SpaceDetailProps = {
   readonly space: Space;
 };
 
-const categoryText = (category: Space["category"]): string =>
-  category === "youth-building" ? "청년동 공간" : "생활지향형 공간";
-
 export function SpaceDetail({ space }: SpaceDetailProps) {
   return (
-    <section className="overflow-hidden rounded-lg border border-[#DDE8D6] bg-white shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
-      <img src={space.imageUrl} alt={`${space.name} 상세 사진`} className="h-56 w-full object-cover" width="900" height="224" />
-      <div className="space-y-4 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold text-[#5F9820]">{categoryText(space.category)}</p>
-            <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">{space.name}</h2>
-            {space.parentSpaceName !== undefined && (
-              <p className="mt-1 text-sm font-semibold text-[#819078]">{space.parentSpaceName}</p>
-            )}
-          </div>
-          <span className="rounded-full bg-[#E8F5DE] px-3 py-1 text-sm font-bold text-[#5F9820]">최대 {space.capacity}명</span>
+    <section className="rounded-[32px] border border-[#DDE8D6] bg-white p-6 md:p-8">
+      <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
+        <div>
+          <p className="text-xs font-black text-[#5F9820]">Selected space</p>
+          <h2 className="mt-2 text-3xl font-black leading-tight text-[#172014] md:text-4xl">{space.name}</h2>
+          {space.parentSpaceName !== undefined && (
+            <p className="mt-2 text-sm font-semibold text-[#819078]">{space.parentSpaceName}</p>
+          )}
+          <p className="mt-5 max-w-2xl text-sm leading-7 text-[#5B6856]">{space.description}</p>
         </div>
-        <p className="text-sm leading-6 text-[#5B6856]">{space.description}</p>
-        <div className="grid gap-2 sm:grid-cols-3">
-          {space.features.map((feature) => (
-            <div key={feature} className="rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3 text-sm font-semibold text-[#172014]">
-              {feature}
-            </div>
-          ))}
-        </div>
+        <span className="rounded-full bg-[#E8F5DE] px-4 py-2 text-sm font-black text-[#5F9820]">최대 {space.capacity}명</span>
       </div>
+      <div className="mt-5 flex flex-wrap gap-2">
+        {space.features.map((feature) => (
+          <span key={feature} className="rounded-full border border-[#EBF2E7] bg-[#F7FBF4] px-3 py-1 text-sm font-semibold text-[#172014]">
+            {feature}
+          </span>
+        ))}
+        </div>
     </section>
   );
 }
