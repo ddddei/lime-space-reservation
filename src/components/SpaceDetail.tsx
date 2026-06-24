@@ -16,6 +16,9 @@ export function SpaceDetail({ space }: SpaceDetailProps) {
           <div>
             <p className="text-xs font-bold text-[#5F9820]">{categoryText(space.category)}</p>
             <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">{space.name}</h2>
+            {space.parentSpaceName !== undefined && (
+              <p className="mt-1 text-sm font-semibold text-[#819078]">{space.parentSpaceName}</p>
+            )}
           </div>
           <span className="rounded-full bg-[#E8F5DE] px-3 py-1 text-sm font-bold text-[#5F9820]">최대 {space.capacity}명</span>
         </div>

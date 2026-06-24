@@ -20,7 +20,7 @@ type SessionContext = {
 type SlotContext = {
   readonly spaceId: string;
   readonly date: string;
-  readonly selectedStartTime: string;
+  readonly selectedBlockTimes: readonly string[];
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
   readonly operatingHours: readonly OperatingHour[];
@@ -124,8 +124,11 @@ export const getConflictingAdminBlock = (
       rangesOverlap(startTime, endTime, block.startTime, block.endTime),
   );
 
-export const canSelectTimeRange = (context: SlotContext): boolean => {
-  const endTime = addBlocks(context.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
+export const canSelectTimeRange = (
+  context: Omit<SlotContext, "selectedBlockTimes"> & { readonly selectedStartTime: string; readonly blockCount?: number },
+): boolean => {
+  const blockCount = context.blockCount ?? DEFAULT_RESERVATION_BLOCKS;
+  const endTime = addBlocks(context.selectedStartTime, blockCount);
   const withinDayLimit = getBlockCount(context.selectedStartTime, endTime) <= MAX_DAILY_BLOCKS;
   const withinOpenHours = isWithinOperatingHours(context.date, context.selectedStartTime, endTime, context.operatingHours);
   return (
@@ -213,12 +216,11 @@ export const getTimeSlots = (context: SlotContext): readonly TimeSlot[] => {
   if (hours === undefined || hours.isClosed) {
     return [];
   }
-  const selectedEndTime = addBlocks(context.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
   return getTimeRangeBetween(hours.openTime, hours.closeTime).map((time) => {
     const blockEnd = addBlocks(time, 1);
     const reserved = getConflictingReservation(context.spaceId, context.date, time, blockEnd, context.sessions);
     const blocked = getConflictingAdminBlock(context.spaceId, context.date, time, blockEnd, context.adminBlocks);
-    const isSelected = rangesOverlap(time, blockEnd, context.selectedStartTime, selectedEndTime);
+    const isSelected = context.selectedBlockTimes.includes(time);
     if (reserved !== undefined) {
       return { time, status: "reserved", label: "예약됨" };
     }

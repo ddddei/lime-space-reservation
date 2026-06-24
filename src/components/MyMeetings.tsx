@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { DEFAULT_RESERVATION_BLOCKS } from "../data/settings";
 import { addBlocks, getCalendarDates, getTimeRange } from "../lib/date";
 import { validateReservationSave } from "../lib/reservationRules";
 import type { AdminBlock, Meeting, ParticipantUser, ReservationSession, SaveValidationResult, Space } from "../types/reservation";
@@ -51,6 +50,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                   const isEditing = editingSession?.sessionId === session.id;
                   const editValues = isEditing ? editingSession.values : sessionToEditValues(session);
                   const editSpace = spaces.find((item) => item.id === editValues.spaceId);
+                  const editableSpaces = spaces.filter((item) => item.isActive && (item.isPublicVisible || item.id === session.spaceId));
                   const editValidation = validateReservationSave({
                     user,
                     meetingId: meeting.id,
@@ -98,7 +98,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                             className="rounded-lg border border-[#DDE8D6] px-3 py-2"
                             aria-label={`${session.sessionIndex}회차 공간 수정`}
                           >
-                            {spaces.filter((item) => item.isActive).map((item) => (
+                            {editableSpaces.map((item) => (
                               <option key={item.id} value={item.id}>{item.name}</option>
                             ))}
                           </select>
@@ -125,7 +125,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                             </select>
                           </div>
                           <p className="text-xs font-bold text-[#5B6856]">
-                            변경 예약 시간: {editValues.startTime}-{addBlocks(editValues.startTime, DEFAULT_RESERVATION_BLOCKS)}
+                            변경 예약 시간: {editValues.startTime}-{addBlocks(editValues.startTime, session.blockCount)}
                           </p>
                           {!editValidation.canSave && <ReasonList reasons={editValidation.reasons} />}
                           {lastSaveResult?.canSave === false && <ReasonList reasons={lastSaveResult.reasons} />}

@@ -22,6 +22,7 @@ export type CreateReservationInput = {
   readonly selectedSpace: Space;
   readonly selectedDate: string;
   readonly selectedStartTime: string;
+  readonly selectedBlockCount: number;
   readonly meetingName: string;
   readonly purpose: string;
   readonly meetings: readonly Meeting[];
@@ -51,8 +52,9 @@ export const buildEligibility = (
   sessions: readonly ReservationSession[],
   selectedDate: string,
   selectedSpaceId: string,
+  requestedBlocks = DEFAULT_RESERVATION_BLOCKS,
 ): EligibilityResult => {
-  const base = getEligibility(user, { meetings, sessions });
+  const base = getEligibility(user, { meetings, sessions }, requestedBlocks);
   const hasDifferentSpaceOnDate = hasUserOtherSpaceOnDate(user.id, selectedSpaceId, selectedDate, meetings, sessions);
   const missingRequirements = hasDifferentSpaceOnDate ? [...base.missingRequirements, "하루에는 하나의 공간만 예약 가능"] : base.missingRequirements;
   return {
@@ -70,7 +72,7 @@ export const validateCurrentSelection = (input: CreateReservationInput): SaveVal
     spaceId: input.selectedSpace.id,
     date: input.selectedDate,
     startTime: input.selectedStartTime,
-    blockCount: DEFAULT_RESERVATION_BLOCKS,
+    blockCount: input.selectedBlockCount,
     meetings: input.meetings,
     sessions: input.sessions,
     adminBlocks: input.adminBlocks,
@@ -89,7 +91,7 @@ export const prepareReservationCreate = (input: CreateReservationInput): CreateR
     spaceId: input.selectedSpace.id,
     date: input.selectedDate,
     startTime: input.selectedStartTime,
-    blockCount: DEFAULT_RESERVATION_BLOCKS,
+    blockCount: input.selectedBlockCount,
     meetings: input.meetings,
     sessions: input.sessions,
     adminBlocks: input.adminBlocks,
@@ -110,8 +112,8 @@ export const prepareReservationCreate = (input: CreateReservationInput): CreateR
       spaceId: input.selectedSpace.id,
       date: input.selectedDate,
       startTime: input.selectedStartTime,
-      endTime: addBlocks(input.selectedStartTime, DEFAULT_RESERVATION_BLOCKS),
-      blockCount: DEFAULT_RESERVATION_BLOCKS,
+      endTime: addBlocks(input.selectedStartTime, input.selectedBlockCount),
+      blockCount: input.selectedBlockCount,
       status: "requested",
       createdAt: now,
       updatedAt: now,

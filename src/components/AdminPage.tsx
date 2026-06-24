@@ -12,6 +12,7 @@ type AdminPageProps = {
   readonly adminBlocks: readonly AdminBlock[];
   readonly onUpdateUser: (user: ParticipantUser) => void;
   readonly onUpdateSpace: (space: Space) => void;
+  readonly onAddSpace: (space: Space) => void;
   readonly onDeleteSession: (sessionId: string) => void;
   readonly onAddBlock: (block: AdminBlock) => void;
 };
@@ -32,7 +33,7 @@ export function AdminPage(props: AdminPageProps) {
         onDeleteSession={props.onDeleteSession}
       />
       <AdminBlockForm spaces={props.spaces} adminBlocks={props.adminBlocks} onAddBlock={props.onAddBlock} />
-      <SpaceAdminEditor spaces={props.spaces} onUpdateSpace={props.onUpdateSpace} />
+      <SpaceAdminEditor spaces={props.spaces} onUpdateSpace={props.onUpdateSpace} onAddSpace={props.onAddSpace} />
     </div>
   );
 }

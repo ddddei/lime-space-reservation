@@ -24,6 +24,7 @@ import {
   prepareSessionUpdate,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
+import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
@@ -37,36 +38,40 @@ export function App() {
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(initialAdminBlocks);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | undefined>();
   const [authenticatedAdminId, setAuthenticatedAdminId] = useState<string | undefined>();
-  const [selectedSpaceId, setSelectedSpaceId] = useState(initialSpaces[0]?.id ?? "");
-  const [selectedDate, setSelectedDate] = useState("2026-06-27");
-  const [selectedStartTime, setSelectedStartTime] = useState("09:00");
+  const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(initialSpaces));
+  const [selectedDate, setSelectedDate] = useState("2026-07-01");
+  const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
   const [purpose, setPurpose] = useState("생활 주제 활동을 함께 기획하고 실행합니다.");
 
-  const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces[0];
+  const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces.find((space) => space.isActive && space.isPublicVisible) ?? spaces[0];
   const authenticatedUser = users.find((user) => user.id === authenticatedUserId);
   const authenticatedAdmin = initialAdmins.find((admin) => admin.id === authenticatedAdminId);
+  const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
       ? undefined
-      : buildEligibility(authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId),
-    [authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId],
+      : buildEligibility(authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId, selectedRange?.blockCount ?? 2),
+    [authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId, selectedRange],
   );
   const saveValidation = useMemo(
     () => authenticatedUser === undefined
       ? undefined
+      : selectedRange === undefined
+        ? { canSave: false, reasons: ["시간 블록을 선택해 주세요."] }
       : validateCurrentSelection({
           selectedUser: authenticatedUser,
           selectedSpace,
           selectedDate,
-          selectedStartTime,
+          selectedStartTime: selectedRange.startTime,
+          selectedBlockCount: selectedRange.blockCount,
           meetingName,
           purpose,
           meetings,
           sessions,
           adminBlocks,
         }),
-    [authenticatedUser, selectedSpace, selectedDate, selectedStartTime, meetingName, purpose, meetings, sessions, adminBlocks],
+    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, purpose, meetings, sessions, adminBlocks],
   );
 
   if (selectedSpace === undefined) {
@@ -104,15 +109,21 @@ export function App() {
               />
               <SpaceLanding spaces={spaces} selectedSpaceId={selectedSpace.id} onSelectSpace={setSelectedSpaceId} />
               <SpaceDetail space={selectedSpace} />
-              <CalendarView selectedDate={selectedDate} onSelectDate={setSelectedDate} />
+              <CalendarView
+                selectedDate={selectedDate}
+                selectedSpace={selectedSpace}
+                sessions={sessions}
+                adminBlocks={adminBlocks}
+                onSelectDate={setSelectedDate}
+              />
               <TimeBlockSelector
                 spaceId={selectedSpace.id}
                 date={selectedDate}
-                selectedStartTime={selectedStartTime}
+                selectedBlockTimes={selectedBlockTimes}
                 sessions={sessions}
                 adminBlocks={adminBlocks}
                 operatingHours={selectedSpace.operatingHours}
-                onSelectStartTime={setSelectedStartTime}
+                onChangeSelectedBlockTimes={setSelectedBlockTimes}
               />
             </div>
             <aside className="grid content-start gap-5">
@@ -123,24 +134,36 @@ export function App() {
                 saveValidation={saveValidation}
                 meetingName={meetingName}
                 purpose={purpose}
-                selectedStartTime={selectedStartTime}
+                selectedRange={selectedRange}
                 onMeetingNameChange={setMeetingName}
                 onPurposeChange={setPurpose}
-                onSubmit={() => saveReservation({
-                  selectedUser: authenticatedUser,
-                  selectedSpace,
-                  selectedDate,
-                  selectedStartTime,
-                  meetingName,
-                  purpose,
-                  meetings,
-                  sessions,
-                  adminBlocks,
-                  setMeetings,
-                  setSessions,
-                })}
+                onSubmit={() => {
+                  if (selectedRange === undefined) {
+                    return;
+                  }
+                  saveReservation({
+                    selectedUser: authenticatedUser,
+                    selectedSpace,
+                    selectedDate,
+                    selectedStartTime: selectedRange.startTime,
+                    selectedBlockCount: selectedRange.blockCount,
+                    meetingName,
+                    purpose,
+                    meetings,
+                    sessions,
+                    adminBlocks,
+                    setMeetings,
+                    setSessions,
+                  });
+                }}
               />
-              <PublicReservationList meetings={meetings} sessions={sessions} spaces={spaces} />
+              <PublicReservationList
+                meetings={meetings}
+                sessions={sessions}
+                spaces={spaces}
+                selectedSpaceId={selectedSpace.id}
+                selectedDate={selectedDate}
+              />
               <MyMeetings
                 userId={authenticatedUser.id}
                 meetings={meetings}
@@ -180,6 +203,7 @@ export function App() {
               adminBlocks={adminBlocks}
               onUpdateUser={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
               onUpdateSpace={(updatedSpace) => setSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
+              onAddSpace={(space) => setSpaces((current) => [...current, space])}
               onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
               onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
             />
@@ -195,11 +219,15 @@ const tabClass = (active: boolean): string =>
     active ? "bg-[#77B82A] text-white" : "border border-[#DDE8D6] bg-white text-[#5B6856] hover:border-[#77B82A]"
   }`;
 
+const getInitialPublicSpaceId = (spaces: readonly Space[]): string =>
+  spaces.find((space) => space.isActive && space.isPublicVisible)?.id ?? spaces[0]?.id ?? "";
+
 type SaveReservationInput = {
   readonly selectedUser: ParticipantUser;
   readonly selectedSpace: Space;
   readonly selectedDate: string;
   readonly selectedStartTime: string;
+  readonly selectedBlockCount: number;
   readonly meetingName: string;
   readonly purpose: string;
   readonly meetings: readonly Meeting[];

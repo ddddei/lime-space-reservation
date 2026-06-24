@@ -22,9 +22,19 @@
 | description | string | 공간 설명 |
 | imageUrl | string | 공간 사진 URL |
 | features | string | 쉼표로 구분한 특징 목록 |
-| isActive | boolean | 예약 노출 여부 |
+| isActive | boolean | 시스템에서 사용 가능한 공간 여부 |
+| isPublicVisible | boolean | 사용자 화면 기본 노출 여부 |
+| requiresAdminUnlock | boolean | 관리자 허용 후 노출/예약이 필요한 공간 여부 |
+| parentSpaceName | string | 제제스튜디오, 숨플레이스 등 상위 공간명 |
+| adminMemo | string | 촬영 문의, 조율 가능, 내부 메모 등 관리자용 메모 |
 | sortOrder | number | 정렬 순서 |
 | updatedAt | ISO datetime | 마지막 수정 시각 |
+
+제휴공간은 실제 예약 가능한 세부 공간 단위로 관리한다. 예를 들어 숨플레이스는 `Room A`, `Room B`, 제제스튜디오는 `루프탑`, `지하`처럼 각각 별도 `spaceId`를 가진다.
+
+청년동 회의실/다목적실은 현재 사용자 화면에서 기본 숨김 처리한다. `isPublicVisible=false`, `requiresAdminUnlock=true`로 두고, 제휴공간 예약이 어려운 경우 관리자 허용 흐름으로 노출/예약 가능하게 확장한다.
+
+관리자는 Spaces 시트에 공간을 추가할 수 있다. 삭제는 실제 행 삭제보다 `isActive=false` 비활성 처리를 기본 정책으로 권장한다.
 
 ## OperatingHours
 
@@ -103,7 +113,7 @@
 | date | YYYY-MM-DD | 예약 날짜 |
 | startTime | HH:mm | 시작 시간 |
 | endTime | HH:mm | 종료 시간 |
-| blockCount | number | 30분 단위 블록 수 |
+| blockCount | number | 사용자가 직접 선택한 30분 단위 블록 수. 1시간 고정값이 아니라 실제 선택 구간 기준으로 저장 |
 | status | requested \| confirmed \| cancelled | 예약 상태 |
 | createdAt | ISO datetime | 생성 시각 |
 | updatedAt | ISO datetime | 마지막 수정 시각 |
@@ -134,7 +144,7 @@
 | actorType | user \| admin \| system | 실행 주체 |
 | actorId | string | 실행 주체 ID |
 | action | string | 수행 작업 |
-| entityType | Settings \| Spaces \| Users \| Meetings \| Sessions \| AdminBlocks | 대상 시트/도메인 |
+| entityType | Settings \| Spaces \| OperatingHours \| Users \| Admins \| Meetings \| Sessions \| AdminBlocks | 대상 시트/도메인 |
 | entityId | string | 대상 ID |
 | beforeJson | JSON string | 변경 전 값 |
 | afterJson | JSON string | 변경 후 값 |

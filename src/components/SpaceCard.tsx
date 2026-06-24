@@ -24,6 +24,9 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
           <div>
             <p className="text-xs font-bold text-[#5F9820]">{categoryLabel(space.category)}</p>
             <h3 className="mt-1 text-lg font-bold text-[#172014]">{space.name}</h3>
+            {space.parentSpaceName !== undefined && (
+              <p className="mt-1 text-xs font-semibold text-[#819078]">{space.parentSpaceName}</p>
+            )}
           </div>
           <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5B6856]">{space.capacity}명</span>
         </div>
