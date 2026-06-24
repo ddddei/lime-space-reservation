@@ -26,7 +26,10 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto grid max-w-2xl gap-4 rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
+    <form
+      onSubmit={handleSubmit}
+      className="mx-auto grid max-w-2xl gap-4 rounded-[24px] border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+    >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인</p>
         <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">등록된 관리자만 접근할 수 있습니다</h2>

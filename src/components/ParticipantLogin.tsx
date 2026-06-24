@@ -28,11 +28,14 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
   };
 
   return (
-    <form onSubmit={handleSubmit} className="mx-auto grid max-w-3xl gap-4 rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
+    <form
+      onSubmit={handleSubmit}
+      className="mx-auto grid max-w-3xl gap-5 rounded-[28px] border border-[#DDE8D6] bg-white p-6 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+    >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">참여자 본인 확인</p>
-        <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">등록된 참여자만 예약을 신청할 수 있습니다</h2>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">
+        <h2 className="mt-2 text-3xl font-extrabold leading-tight text-[#172014]">등록된 참여자만 예약할 수 있습니다</h2>
+        <p className="mt-3 text-sm leading-6 text-[#5B6856]">
           등록된 이름과 전체 전화번호로 확인합니다.
         </p>
       </div>
