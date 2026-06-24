@@ -22,8 +22,12 @@ export const getBlockCount = (startTime: string, endTime: string): number =>
   Math.max(0, (toMinutes(endTime) - toMinutes(startTime)) / BLOCK_MINUTES);
 
 export const getTimeRange = (): readonly string[] => {
+  return getTimeRangeBetween(OPEN_TIME, CLOSE_TIME);
+};
+
+export const getTimeRangeBetween = (openTime: string, closeTime: string): readonly string[] => {
   const slots: string[] = [];
-  for (let minute = toMinutes(OPEN_TIME); minute < toMinutes(CLOSE_TIME); minute += BLOCK_MINUTES) {
+  for (let minute = toMinutes(openTime); minute < toMinutes(closeTime); minute += BLOCK_MINUTES) {
     slots.push(toTime(minute));
   }
   return slots;
@@ -43,7 +47,7 @@ export const formatDateLabel = (date: string): string =>
     weekday: "short",
   }).format(new Date(`${date}T00:00:00+09:00`));
 
-export const getCalendarDates = (baseDate = "2026-06-24", days = 14): readonly string[] => {
+export const getCalendarDates = (baseDate = "2026-07-01", days = 62): readonly string[] => {
   const dates: string[] = [];
   const base = new Date(`${baseDate}T00:00:00+09:00`);
   for (let index = 0; index < days; index += 1) {
@@ -53,6 +57,8 @@ export const getCalendarDates = (baseDate = "2026-06-24", days = 14): readonly s
   }
   return dates;
 };
+
+export const getDayOfWeek = (date: string): number => new Date(`${date}T00:00:00+09:00`).getDay();
 
 const formatDateValue = (date: Date): string => {
   const year = date.getFullYear();

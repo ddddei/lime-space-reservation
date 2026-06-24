@@ -39,6 +39,7 @@ export type UpdateSessionInput = {
   readonly sessionId: string;
   readonly values: SessionEditValues;
   readonly selectedUser: ParticipantUser;
+  readonly spaces: readonly Space[];
   readonly meetings: readonly Meeting[];
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
@@ -73,6 +74,7 @@ export const validateCurrentSelection = (input: CreateReservationInput): SaveVal
     meetings: input.meetings,
     sessions: input.sessions,
     adminBlocks: input.adminBlocks,
+    operatingHours: input.selectedSpace.operatingHours,
   });
 };
 
@@ -91,6 +93,7 @@ export const prepareReservationCreate = (input: CreateReservationInput): CreateR
     meetings: input.meetings,
     sessions: input.sessions,
     adminBlocks: input.adminBlocks,
+    operatingHours: input.selectedSpace.operatingHours,
   });
 
   if (!validation.canSave) {
@@ -121,9 +124,16 @@ export const prepareSessionUpdate = (input: UpdateSessionInput): {
   readonly sessions: readonly ReservationSession[];
 } => {
   const session = input.sessions.find((item) => item.id === input.sessionId);
+  const selectedSpace = input.spaces.find((space) => space.id === input.values.spaceId);
   if (session === undefined) {
     return {
       validation: { canSave: false, reasons: ["수정할 회차를 찾을 수 없음"] },
+      sessions: input.sessions,
+    };
+  }
+  if (selectedSpace === undefined) {
+    return {
+      validation: { canSave: false, reasons: ["수정할 공간을 찾을 수 없음"] },
       sessions: input.sessions,
     };
   }
@@ -138,6 +148,7 @@ export const prepareSessionUpdate = (input: UpdateSessionInput): {
     meetings: input.meetings,
     sessions: input.sessions,
     adminBlocks: input.adminBlocks,
+    operatingHours: selectedSpace.operatingHours,
     excludeSessionId: session.id,
   });
 

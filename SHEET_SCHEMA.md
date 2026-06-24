@@ -26,9 +26,24 @@
 | sortOrder | number | 정렬 순서 |
 | updatedAt | ISO datetime | 마지막 수정 시각 |
 
+## OperatingHours
+
+공간별 요일 운영시간을 관리한다. `dayOfWeek`는 0=일요일, 1=월요일, 2=화요일, 3=수요일, 4=목요일, 5=금요일, 6=토요일이다. 24시간 운영은 `openTime=00:00`, `closeTime=24:00`으로 기록한다.
+
+| Column | Type | Description |
+|---|---|---|
+| operatingHourId | string | 운영시간 ID |
+| spaceId | string | 공간 ID |
+| dayOfWeek | 0-6 | 요일 |
+| openTime | HH:mm | 운영 시작 시간 |
+| closeTime | HH:mm | 운영 종료 시간 |
+| isClosed | boolean | 정기 휴무 여부 |
+| memo | string | 운영시간 메모 |
+| updatedAt | ISO datetime | 마지막 수정 시각 |
+
 ## Users
 
-사용자 로그인/본인 확인은 기본적으로 Users 시트의 `name` + `phoneLast4` 조합으로 확인한다. 동명이인 또는 전화번호 뒤 4자리 중복으로 동일 조건의 사용자가 여러 명 조회되면 `name` + `phone` 전체 전화번호로 추가 확인해야 한다. Users 시트에 없는 사람은 공간 예약 및 모임 신청을 할 수 없다.
+사용자 로그인/본인 확인은 Users 시트의 `name` + `phone` 전체 전화번호로 확인한다. `phoneLast4`는 화면 표시와 공개 현황 마스킹용으로만 사용한다. Users 시트에 없는 사람은 공간 예약 및 모임 신청을 할 수 없다.
 
 | Column | Type | Description |
 |---|---|---|
@@ -44,6 +59,21 @@
 | maxBlocks | number | 총 신청 가능 블록 수 |
 | memo | string | 관리자 메모 |
 | isActive | boolean | 활성 사용자 여부 |
+| createdAt | ISO datetime | 생성 시각 |
+| updatedAt | ISO datetime | 마지막 수정 시각 |
+
+## Admins
+
+관리자 로그인은 Admins 시트의 `name` + `phone` 전체 전화번호로 확인한다. Admins 시트에 없거나 `isActive=false`인 사람은 관리자 모드에 접근할 수 없다.
+
+| Column | Type | Description |
+|---|---|---|
+| adminId | string | 관리자 ID |
+| name | string | 관리자 이름 |
+| phone | string | 전체 전화번호 |
+| phoneLast4 | string | 전화번호 끝 4자리 |
+| role | string | 관리자 권한 |
+| isActive | boolean | 활성 관리자 여부 |
 | createdAt | ISO datetime | 생성 시각 |
 | updatedAt | ISO datetime | 마지막 수정 시각 |
 
@@ -79,6 +109,10 @@
 | updatedAt | ISO datetime | 마지막 수정 시각 |
 
 ## AdminBlocks
+
+관리자 차단 일정은 실제 예약 불가 시간, 제휴공간 기존 예약, 휴무, 내부 점검, 촬영 등으로 사용한다. 확정되지 않은 문의나 촬영 가능성은 차단 일정으로 등록하지 않고 관리자 메모 또는 AuditLogs에 남긴 뒤 확정 시 등록한다.
+
+시즌1 운영 메모: 제제스튜디오는 확정 예약불가 일정이 없고 촬영 문의는 조율 가능 상태다. 숨플레이스 금요일 20:00~21:00 촬영 예약 가능성은 아직 확정이 아니므로 AdminBlocks에 등록하지 않는다.
 
 | Column | Type | Description |
 |---|---|---|

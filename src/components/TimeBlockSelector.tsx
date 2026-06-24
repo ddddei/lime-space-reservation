@@ -1,7 +1,7 @@
 import { DEFAULT_RESERVATION_BLOCKS } from "../data/settings";
 import { addBlocks } from "../lib/date";
-import { canSelectTimeRange, getTimeSlots } from "../lib/reservationRules";
-import type { AdminBlock, ReservationSession } from "../types/reservation";
+import { canSelectTimeRange, getOperatingHoursForDate, getTimeSlots } from "../lib/reservationRules";
+import type { AdminBlock, OperatingHour, ReservationSession } from "../types/reservation";
 
 type TimeBlockSelectorProps = {
   readonly spaceId: string;
@@ -9,6 +9,7 @@ type TimeBlockSelectorProps = {
   readonly selectedStartTime: string;
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
+  readonly operatingHours: readonly OperatingHour[];
   readonly onSelectStartTime: (time: string) => void;
 };
 
@@ -29,19 +30,24 @@ const slotClass = (status: string): string => {
 
 export function TimeBlockSelector(props: TimeBlockSelectorProps) {
   const slots = getTimeSlots(props);
+  const hours = getOperatingHoursForDate(props.date, props.operatingHours);
   const selectedEndTime = addBlocks(props.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">시간 선택</h2>
-          <p className="text-sm text-[#5B6856]">기본 예약 단위는 1시간이며 내부 계산은 30분 블록입니다.</p>
+          <p className="text-sm text-[#5B6856]">
+            {hours === undefined || hours.isClosed
+              ? "선택한 날짜는 이 공간의 운영일이 아닙니다."
+              : `운영시간 ${hours.openTime}-${hours.closeTime} · 기본 예약 단위는 1시간입니다.`}
+          </p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-sm font-bold text-[#5F9820]">
           선택 {props.selectedStartTime}-{selectedEndTime}
         </span>
       </div>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+      <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-6">
         {slots.map((slot) => {
           const selectable =
             slot.status === "available" &&
@@ -51,6 +57,7 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
               selectedStartTime: slot.time,
               sessions: props.sessions,
               adminBlocks: props.adminBlocks,
+              operatingHours: props.operatingHours,
             });
           return (
             <button
@@ -66,6 +73,11 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           );
         })}
       </div>
+      {slots.length === 0 && (
+        <div className="rounded-lg border border-[#F2D59B] bg-[#FFF6E3] p-3 text-sm font-semibold text-[#B76E00]">
+          선택한 날짜에는 운영시간이 없어 예약할 수 없습니다.
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
         <span className="rounded-full bg-white px-2 py-1 text-[#5B6856] ring-1 ring-[#DDE8D6]">가능</span>
         <span className="rounded-full bg-[#E8F5DE] px-2 py-1 text-[#172014]">선택</span>

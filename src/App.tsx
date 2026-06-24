@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
+import { AdminLogin } from "./components/AdminLogin";
 import { AdminPage } from "./components/AdminPage";
+import { AdminSummary } from "./components/AdminSummary";
 import { CalendarView } from "./components/CalendarView";
 import { EligibilityPanel } from "./components/EligibilityPanel";
 import { MeetingForm } from "./components/MeetingForm";
@@ -11,6 +13,7 @@ import { SpaceDetail } from "./components/SpaceDetail";
 import { SpaceLanding } from "./components/SpaceLanding";
 import { TimeBlockSelector } from "./components/TimeBlockSelector";
 import { initialAdminBlocks } from "./data/mockAdminBlocks";
+import { initialAdmins } from "./data/mockAdmins";
 import { initialMeetings } from "./data/mockMeetings";
 import { initialSessions } from "./data/mockSessions";
 import { initialSpaces } from "./data/spaces";
@@ -21,7 +24,7 @@ import {
   prepareSessionUpdate,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
-import type { AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
+import type { Admin, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
 
@@ -33,6 +36,7 @@ export function App() {
   const [sessions, setSessions] = useState<readonly ReservationSession[]>(initialSessions);
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(initialAdminBlocks);
   const [authenticatedUserId, setAuthenticatedUserId] = useState<string | undefined>();
+  const [authenticatedAdminId, setAuthenticatedAdminId] = useState<string | undefined>();
   const [selectedSpaceId, setSelectedSpaceId] = useState(initialSpaces[0]?.id ?? "");
   const [selectedDate, setSelectedDate] = useState("2026-06-27");
   const [selectedStartTime, setSelectedStartTime] = useState("09:00");
@@ -41,6 +45,7 @@ export function App() {
 
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces[0];
   const authenticatedUser = users.find((user) => user.id === authenticatedUserId);
+  const authenticatedAdmin = initialAdmins.find((admin) => admin.id === authenticatedAdminId);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
       ? undefined
@@ -106,6 +111,7 @@ export function App() {
                 selectedStartTime={selectedStartTime}
                 sessions={sessions}
                 adminBlocks={adminBlocks}
+                operatingHours={selectedSpace.operatingHours}
                 onSelectStartTime={setSelectedStartTime}
               />
             </div>
@@ -147,6 +153,7 @@ export function App() {
                     sessionId,
                     values,
                     selectedUser: authenticatedUser,
+                    spaces,
                     meetings,
                     sessions,
                     adminBlocks,
@@ -160,18 +167,23 @@ export function App() {
               />
             </aside>
           </div>
+        ) : authenticatedAdmin === undefined ? (
+          <AdminLogin admins={initialAdmins} onAuthenticated={(admin: Admin) => setAuthenticatedAdminId(admin.id)} />
         ) : (
-          <AdminPage
-            users={users}
-            meetings={meetings}
-            sessions={sessions}
-            spaces={spaces}
-            adminBlocks={adminBlocks}
-            onUpdateUser={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
-            onUpdateSpace={(updatedSpace) => setSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
-            onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
-            onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
-          />
+          <div className="grid gap-4">
+            <AdminSummary admin={authenticatedAdmin} onLogout={() => setAuthenticatedAdminId(undefined)} />
+            <AdminPage
+              users={users}
+              meetings={meetings}
+              sessions={sessions}
+              spaces={spaces}
+              adminBlocks={adminBlocks}
+              onUpdateUser={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
+              onUpdateSpace={(updatedSpace) => setSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
+              onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
+              onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
+            />
+          </div>
         )}
       </div>
     </main>

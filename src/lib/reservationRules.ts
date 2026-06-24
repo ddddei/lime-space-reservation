@@ -1,10 +1,11 @@
-import { CLOSE_TIME, DEFAULT_RESERVATION_BLOCKS, MAX_DAILY_BLOCKS, MAX_MEETING_SESSIONS, OPEN_TIME } from "../data/settings";
-import { addBlocks, getBlockCount, getTimeRange, rangesOverlap, toMinutes } from "./date";
+import { DEFAULT_RESERVATION_BLOCKS, MAX_DAILY_BLOCKS, MAX_MEETING_SESSIONS } from "../data/settings";
+import { addBlocks, getBlockCount, getDayOfWeek, getTimeRangeBetween, rangesOverlap, toMinutes } from "./date";
 import { getChecklistLabels } from "./permissions";
 import type {
   AdminBlock,
   EligibilityResult,
   Meeting,
+  OperatingHour,
   ParticipantUser,
   ReservationSession,
   SaveValidationResult,
@@ -22,6 +23,7 @@ type SlotContext = {
   readonly selectedStartTime: string;
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
+  readonly operatingHours: readonly OperatingHour[];
 };
 
 type SaveValidationInput = {
@@ -34,6 +36,7 @@ type SaveValidationInput = {
   readonly meetings: readonly Meeting[];
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
+  readonly operatingHours: readonly OperatingHour[];
   readonly excludeSessionId?: string;
 };
 
@@ -124,7 +127,7 @@ export const getConflictingAdminBlock = (
 export const canSelectTimeRange = (context: SlotContext): boolean => {
   const endTime = addBlocks(context.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
   const withinDayLimit = getBlockCount(context.selectedStartTime, endTime) <= MAX_DAILY_BLOCKS;
-  const withinOpenHours = toMinutes(endTime) <= toMinutes("21:00");
+  const withinOpenHours = isWithinOperatingHours(context.date, context.selectedStartTime, endTime, context.operatingHours);
   return (
     withinDayLimit &&
     withinOpenHours &&
@@ -175,7 +178,7 @@ export const validateReservationSave = (input: SaveValidationInput): SaveValidat
   if (dailyBlocks + input.blockCount > MAX_DAILY_BLOCKS) {
     reasons.push("하루 최대 4시간 초과");
   }
-  if (toMinutes(input.startTime) < toMinutes(OPEN_TIME) || toMinutes(endTime) > toMinutes(CLOSE_TIME)) {
+  if (!isWithinOperatingHours(input.date, input.startTime, endTime, input.operatingHours)) {
     reasons.push("운영 시간 범위 초과");
   }
   if (getConflictingReservation(input.spaceId, input.date, input.startTime, endTime, input.sessions, input.excludeSessionId) !== undefined) {
@@ -206,8 +209,12 @@ export const hasUserOtherSpaceOnDate = (
 };
 
 export const getTimeSlots = (context: SlotContext): readonly TimeSlot[] => {
+  const hours = getOperatingHoursForDate(context.date, context.operatingHours);
+  if (hours === undefined || hours.isClosed) {
+    return [];
+  }
   const selectedEndTime = addBlocks(context.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
-  return getTimeRange().map((time) => {
+  return getTimeRangeBetween(hours.openTime, hours.closeTime).map((time) => {
     const blockEnd = addBlocks(time, 1);
     const reserved = getConflictingReservation(context.spaceId, context.date, time, blockEnd, context.sessions);
     const blocked = getConflictingAdminBlock(context.spaceId, context.date, time, blockEnd, context.adminBlocks);
@@ -223,4 +230,25 @@ export const getTimeSlots = (context: SlotContext): readonly TimeSlot[] => {
     }
     return { time, status: "available", label: "가능" };
   });
+};
+
+export const getOperatingHoursForDate = (
+  date: string,
+  operatingHours: readonly OperatingHour[],
+): OperatingHour | undefined => {
+  const dayOfWeek = getDayOfWeek(date);
+  return operatingHours.find((hours) => hours.dayOfWeek === dayOfWeek);
+};
+
+export const isWithinOperatingHours = (
+  date: string,
+  startTime: string,
+  endTime: string,
+  operatingHours: readonly OperatingHour[],
+): boolean => {
+  const hours = getOperatingHoursForDate(date, operatingHours);
+  if (hours === undefined || hours.isClosed) {
+    return false;
+  }
+  return toMinutes(startTime) >= toMinutes(hours.openTime) && toMinutes(endTime) <= toMinutes(hours.closeTime);
 };
