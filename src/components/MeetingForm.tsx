@@ -1,5 +1,4 @@
-import { DEFAULT_RESERVATION_BLOCKS } from "../data/settings";
-import { addBlocks } from "../lib/date";
+import type { SelectedTimeRange } from "../lib/timeSelection";
 import type { EligibilityResult, ParticipantUser, SaveValidationResult } from "../types/reservation";
 
 type MeetingFormProps = {
@@ -8,14 +7,13 @@ type MeetingFormProps = {
   readonly saveValidation: SaveValidationResult;
   readonly meetingName: string;
   readonly purpose: string;
-  readonly selectedStartTime: string;
+  readonly selectedRange?: SelectedTimeRange;
   readonly onMeetingNameChange: (value: string) => void;
   readonly onPurposeChange: (value: string) => void;
   readonly onSubmit: () => void;
 };
 
 export function MeetingForm(props: MeetingFormProps) {
-  const selectedEndTime = addBlocks(props.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="mb-4">
@@ -48,7 +46,10 @@ export function MeetingForm(props: MeetingFormProps) {
         </label>
       </div>
       <div className="mt-4 rounded-lg bg-[#F7FBF4] p-3 text-sm text-[#5B6856]">
-        예약 요청 시간: <strong className="text-[#172014]">{props.selectedStartTime}-{selectedEndTime}</strong> / 2블록
+        예약 요청 시간:{" "}
+        <strong className="text-[#172014]">
+          {props.selectedRange === undefined ? "시간을 선택해 주세요." : props.selectedRange.label}
+        </strong>
       </div>
       {!props.eligibility.canReserve && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">

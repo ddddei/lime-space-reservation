@@ -1,16 +1,16 @@
-import { DEFAULT_RESERVATION_BLOCKS } from "../data/settings";
-import { addBlocks } from "../lib/date";
-import { canSelectTimeRange, getOperatingHoursForDate, getTimeSlots } from "../lib/reservationRules";
+import { useState } from "react";
+import { getOperatingHoursForDate, getTimeSlots } from "../lib/reservationRules";
+import { getSelectedTimeRange, toggleBlockTime } from "../lib/timeSelection";
 import type { AdminBlock, OperatingHour, ReservationSession } from "../types/reservation";
 
 type TimeBlockSelectorProps = {
   readonly spaceId: string;
   readonly date: string;
-  readonly selectedStartTime: string;
+  readonly selectedBlockTimes: readonly string[];
   readonly sessions: readonly ReservationSession[];
   readonly adminBlocks: readonly AdminBlock[];
   readonly operatingHours: readonly OperatingHour[];
-  readonly onSelectStartTime: (time: string) => void;
+  readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
 };
 
 const slotClass = (status: string): string => {
@@ -29,9 +29,10 @@ const slotClass = (status: string): string => {
 };
 
 export function TimeBlockSelector(props: TimeBlockSelectorProps) {
+  const [selectionMessage, setSelectionMessage] = useState<string | undefined>();
   const slots = getTimeSlots(props);
   const hours = getOperatingHoursForDate(props.date, props.operatingHours);
-  const selectedEndTime = addBlocks(props.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
+  const selectedRange = getSelectedTimeRange(props.selectedBlockTimes);
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -40,31 +41,26 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           <p className="text-sm text-[#5B6856]">
             {hours === undefined || hours.isClosed
               ? "선택한 날짜는 이 공간의 운영일이 아닙니다."
-              : `운영시간 ${hours.openTime}-${hours.closeTime} · 기본 예약 단위는 1시간입니다.`}
+              : `운영시간 ${hours.openTime}-${hours.closeTime} · 30분 블록을 연속으로 선택합니다.`}
           </p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-sm font-bold text-[#5F9820]">
-          선택 {props.selectedStartTime}-{selectedEndTime}
+          {selectedRange === undefined ? "시간 미선택" : `선택 ${selectedRange.label}`}
         </span>
       </div>
       <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-6">
         {slots.map((slot) => {
-          const selectable =
-            slot.status === "available" &&
-            canSelectTimeRange({
-              spaceId: props.spaceId,
-              date: props.date,
-              selectedStartTime: slot.time,
-              sessions: props.sessions,
-              adminBlocks: props.adminBlocks,
-              operatingHours: props.operatingHours,
-            });
+          const selectable = slot.status === "available" || slot.status === "selected";
           return (
             <button
               type="button"
               key={slot.time}
-              disabled={!selectable && slot.status !== "selected"}
-              onClick={() => onSelectIfAvailable(slot.time, selectable, props.onSelectStartTime)}
+              disabled={!selectable}
+              onClick={() => {
+                const result = toggleBlockTime(props.selectedBlockTimes, slot.time);
+                props.onChangeSelectedBlockTimes(result.selectedBlockTimes);
+                setSelectionMessage(result.message);
+              }}
               className={`min-h-16 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-70 ${slotClass(slot.status)}`}
             >
               <span className="block font-bold">{slot.time}</span>
@@ -78,6 +74,16 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           선택한 날짜에는 운영시간이 없어 예약할 수 없습니다.
         </div>
       )}
+      {selectedRange !== undefined && (
+        <div className="mt-3 rounded-lg bg-[#F7FBF4] p-3 text-sm font-semibold text-[#172014]">
+          선택 시간: {selectedRange.label}
+        </div>
+      )}
+      {selectionMessage !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#F2D59B] bg-[#FFF6E3] p-3 text-sm font-semibold text-[#B76E00]">
+          {selectionMessage}
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
         <span className="rounded-full bg-white px-2 py-1 text-[#5B6856] ring-1 ring-[#DDE8D6]">가능</span>
         <span className="rounded-full bg-[#E8F5DE] px-2 py-1 text-[#172014]">선택</span>
@@ -86,10 +92,4 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
       </div>
     </section>
   );
-}
-
-function onSelectIfAvailable(time: string, selectable: boolean, onSelectStartTime: (time: string) => void): void {
-  if (selectable) {
-    onSelectStartTime(time);
-  }
 }

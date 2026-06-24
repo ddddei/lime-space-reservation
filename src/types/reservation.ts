@@ -29,6 +29,10 @@ export type Space = {
   readonly features: readonly string[];
   readonly operatingHours: readonly OperatingHour[];
   readonly isActive: boolean;
+  readonly isPublicVisible: boolean;
+  readonly requiresAdminUnlock?: boolean;
+  readonly parentSpaceName?: string;
+  readonly adminMemo?: string;
   readonly sortOrder: number;
 };
 
