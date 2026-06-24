@@ -76,6 +76,11 @@ export type EligibilityResult = {
   readonly missingRequirements: readonly string[];
 };
 
+export type SaveValidationResult = {
+  readonly canSave: boolean;
+  readonly reasons: readonly string[];
+};
+
 export type TimeSlotStatus = "available" | "reserved" | "blocked" | "selected";
 
 export type TimeSlot = {
