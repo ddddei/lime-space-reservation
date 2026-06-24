@@ -7,14 +7,17 @@ import { PublicReservationList } from "./components/PublicReservationList";
 import { SpaceDetail } from "./components/SpaceDetail";
 import { SpaceLanding } from "./components/SpaceLanding";
 import { TimeBlockSelector } from "./components/TimeBlockSelector";
-import { DEFAULT_RESERVATION_BLOCKS } from "./data/settings";
 import { initialAdminBlocks } from "./data/mockAdminBlocks";
 import { initialMeetings } from "./data/mockMeetings";
 import { initialSessions } from "./data/mockSessions";
 import { initialSpaces } from "./data/spaces";
 import { initialUsers } from "./data/mockUsers";
-import { addBlocks } from "./lib/date";
-import { getEligibility } from "./lib/reservationRules";
+import {
+  buildEligibility,
+  prepareReservationCreate,
+  prepareSessionUpdate,
+  validateCurrentSelection,
+} from "./lib/mockReservationActions";
 import type { AdminBlock, EligibilityResult, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
@@ -39,6 +42,20 @@ export function App() {
     () => buildEligibility(selectedUser, meetings, sessions, selectedDate, selectedSpaceId),
     [selectedUser, meetings, sessions, selectedDate, selectedSpaceId],
   );
+  const saveValidation = useMemo(
+    () => validateCurrentSelection({
+      selectedUser,
+      selectedSpace,
+      selectedDate,
+      selectedStartTime,
+      meetingName,
+      purpose,
+      meetings,
+      sessions,
+      adminBlocks,
+    }),
+    [selectedUser, selectedSpace, selectedDate, selectedStartTime, meetingName, purpose, meetings, sessions, adminBlocks],
+  );
 
   if (selectedSpace === undefined || selectedUser === undefined) {
     return <main className="p-6 text-[#172014]">초기 mock data를 확인해주세요.</main>;
@@ -52,7 +69,7 @@ export function App() {
             <p className="text-sm font-extrabold text-[#5F9820]">Lime Space Reservation</p>
             <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">청년동 공간 및 생활지향형 공간 예약</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5B6856]">
-              기획안, 예산안, 홍보물, 관리자 최종 승인을 모두 충족한 참여자만 예약할 수 있는 mock 기반 1차 구현입니다.
+              기획안, 예산안, 홍보물, 관리자 최종 승인을 모두 충족한 참여자만 예약할 수 있는 mock 기반 운영 규칙 보강 구현입니다.
             </p>
           </div>
           <div className="flex gap-2">
@@ -99,6 +116,7 @@ export function App() {
               <MeetingForm
                 selectedUser={selectedUser}
                 eligibility={eligibility}
+                saveValidation={saveValidation}
                 meetingName={meetingName}
                 purpose={purpose}
                 selectedStartTime={selectedStartTime}
@@ -113,6 +131,7 @@ export function App() {
                   purpose,
                   meetings,
                   sessions,
+                  adminBlocks,
                   setMeetings,
                   setSessions,
                 })}
@@ -123,6 +142,22 @@ export function App() {
                 meetings={meetings}
                 sessions={sessions}
                 spaces={spaces}
+                adminBlocks={adminBlocks}
+                user={selectedUser}
+                onUpdateSession={(sessionId, values) => {
+                  const result = prepareSessionUpdate({
+                    sessionId,
+                    values,
+                    selectedUser,
+                    meetings,
+                    sessions,
+                    adminBlocks,
+                  });
+                  if (result.validation.canSave) {
+                    setSessions(result.sessions);
+                  }
+                  return result.validation;
+                }}
                 onCancelSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
               />
             </aside>
@@ -185,76 +220,22 @@ type SaveReservationInput = {
   readonly purpose: string;
   readonly meetings: readonly Meeting[];
   readonly sessions: readonly ReservationSession[];
+  readonly adminBlocks: readonly AdminBlock[];
   readonly setMeetings: React.Dispatch<React.SetStateAction<readonly Meeting[]>>;
   readonly setSessions: React.Dispatch<React.SetStateAction<readonly ReservationSession[]>>;
 };
 
 function saveReservation(input: SaveReservationInput): void {
-  const now = new Date().toISOString();
-  const existingMeeting = input.meetings.find(
-    (meeting) => meeting.applicantUserId === input.selectedUser.id && meeting.meetingName === input.meetingName,
-  );
-  const meetingId = existingMeeting?.id ?? `meeting-${Date.now()}`;
-  const currentSessions = input.sessions.filter((session) => session.meetingId === meetingId && session.status !== "cancelled");
-  const nextSessionIndex = currentSessions.length + 1;
-  const endTime = addBlocks(input.selectedStartTime, DEFAULT_RESERVATION_BLOCKS);
-
-  if (existingMeeting === undefined) {
-    input.setMeetings((current) => [
-      {
-        id: meetingId,
-        applicantUserId: input.selectedUser.id,
-        applicantName: input.selectedUser.name,
-        phoneLast4: input.selectedUser.phoneLast4,
-        level: input.selectedUser.level,
-        meetingName: input.meetingName,
-        purpose: input.purpose,
-        status: "submitted",
-        createdAt: now,
-        updatedAt: now,
-      },
-      ...current,
-    ]);
+  const change = prepareReservationCreate(input);
+  if (!change.validation.canSave || change.session === undefined) {
+    return;
   }
 
-  input.setSessions((current) => [
-    {
-      id: `session-${Date.now()}`,
-      meetingId,
-      sessionIndex: nextSessionIndex,
-      spaceId: input.selectedSpace.id,
-      date: input.selectedDate,
-      startTime: input.selectedStartTime,
-      endTime,
-      blockCount: DEFAULT_RESERVATION_BLOCKS,
-      status: "requested",
-      createdAt: now,
-      updatedAt: now,
-    },
-    ...current,
-  ]);
-}
+  if (change.meeting !== undefined) {
+    const meeting = change.meeting;
+    input.setMeetings((current) => [meeting, ...current]);
+  }
 
-function buildEligibility(
-  user: ParticipantUser,
-  meetings: readonly Meeting[],
-  sessions: readonly ReservationSession[],
-  selectedDate: string,
-  selectedSpaceId: string,
-): EligibilityResult {
-  const base = getEligibility(user, { meetings, sessions });
-  const userMeetingIds = meetings.filter((meeting) => meeting.applicantUserId === user.id).map((meeting) => meeting.id);
-  const hasDifferentSpaceOnDate = sessions.some(
-    (session) =>
-      userMeetingIds.includes(session.meetingId) &&
-      session.date === selectedDate &&
-      session.spaceId !== selectedSpaceId &&
-      session.status !== "cancelled",
-  );
-  const missingRequirements = hasDifferentSpaceOnDate ? [...base.missingRequirements, "하루에는 하나의 공간만 예약 가능"] : base.missingRequirements;
-  return {
-    ...base,
-    canReserve: base.canReserve && !hasDifferentSpaceOnDate,
-    missingRequirements,
-  };
+  const session = change.session;
+  input.setSessions((current) => [session, ...current]);
 }

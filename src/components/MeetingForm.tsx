@@ -1,10 +1,11 @@
 import { DEFAULT_RESERVATION_BLOCKS } from "../data/settings";
 import { addBlocks } from "../lib/date";
-import type { EligibilityResult, ParticipantUser } from "../types/reservation";
+import type { EligibilityResult, ParticipantUser, SaveValidationResult } from "../types/reservation";
 
 type MeetingFormProps = {
   readonly selectedUser: ParticipantUser;
   readonly eligibility: EligibilityResult;
+  readonly saveValidation: SaveValidationResult;
   readonly meetingName: string;
   readonly purpose: string;
   readonly selectedStartTime: string;
@@ -61,12 +62,22 @@ export function MeetingForm(props: MeetingFormProps) {
       )}
       <button
         type="button"
-        disabled={!props.eligibility.canReserve || props.meetingName.trim().length === 0}
+        disabled={!props.saveValidation.canSave || props.meetingName.trim().length === 0}
         onClick={props.onSubmit}
         className="mt-4 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
         회차 신청 저장
       </button>
+      {!props.saveValidation.canSave && (
+        <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">
+          <p className="font-bold">저장할 수 없는 이유</p>
+          <ul className="mt-2 list-inside list-disc">
+            {props.saveValidation.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

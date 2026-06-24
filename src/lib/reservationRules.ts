@@ -1,4 +1,4 @@
-import { DEFAULT_RESERVATION_BLOCKS, MAX_DAILY_BLOCKS, MAX_MEETING_SESSIONS } from "../data/settings";
+import { CLOSE_TIME, DEFAULT_RESERVATION_BLOCKS, MAX_DAILY_BLOCKS, MAX_MEETING_SESSIONS, OPEN_TIME } from "../data/settings";
 import { addBlocks, getBlockCount, getTimeRange, rangesOverlap, toMinutes } from "./date";
 import { getChecklistLabels } from "./permissions";
 import type {
@@ -7,6 +7,7 @@ import type {
   Meeting,
   ParticipantUser,
   ReservationSession,
+  SaveValidationResult,
   TimeSlot,
 } from "../types/reservation";
 
@@ -23,12 +24,31 @@ type SlotContext = {
   readonly adminBlocks: readonly AdminBlock[];
 };
 
+type SaveValidationInput = {
+  readonly user: ParticipantUser;
+  readonly meetingId: string;
+  readonly spaceId: string;
+  readonly date: string;
+  readonly startTime: string;
+  readonly blockCount: number;
+  readonly meetings: readonly Meeting[];
+  readonly sessions: readonly ReservationSession[];
+  readonly adminBlocks: readonly AdminBlock[];
+  readonly excludeSessionId?: string;
+};
+
+const activeSessions = (
+  sessions: readonly ReservationSession[],
+  excludeSessionId?: string,
+): readonly ReservationSession[] =>
+  sessions.filter((session) => session.status !== "cancelled" && session.id !== excludeSessionId);
+
 export const getUserUsedBlocks = (userId: string, context: SessionContext): number => {
   const meetingIds = context.meetings
     .filter((meeting) => meeting.applicantUserId === userId)
     .map((meeting) => meeting.id);
-  return context.sessions
-    .filter((session) => meetingIds.includes(session.meetingId) && session.status !== "cancelled")
+  return activeSessions(context.sessions)
+    .filter((session) => meetingIds.includes(session.meetingId))
     .reduce((total, session) => total + session.blockCount, 0);
 };
 
@@ -54,20 +74,21 @@ export const getEligibility = (
 export const hasMeetingSessionCapacity = (
   meetingId: string,
   sessions: readonly ReservationSession[],
-): boolean => sessions.filter((session) => session.meetingId === meetingId && session.status !== "cancelled").length < MAX_MEETING_SESSIONS;
+  excludeSessionId?: string,
+): boolean => activeSessions(sessions, excludeSessionId).filter((session) => session.meetingId === meetingId).length < MAX_MEETING_SESSIONS;
 
 export const hasOtherSpaceOnDate = (
   meetingId: string,
   spaceId: string,
   date: string,
   sessions: readonly ReservationSession[],
+  excludeSessionId?: string,
 ): boolean =>
-  sessions.some(
+  activeSessions(sessions, excludeSessionId).some(
     (session) =>
       session.meetingId === meetingId &&
       session.date === date &&
-      session.spaceId !== spaceId &&
-      session.status !== "cancelled",
+      session.spaceId !== spaceId,
   );
 
 export const getConflictingReservation = (
@@ -76,12 +97,12 @@ export const getConflictingReservation = (
   startTime: string,
   endTime: string,
   sessions: readonly ReservationSession[],
+  excludeSessionId?: string,
 ): ReservationSession | undefined =>
-  sessions.find(
+  activeSessions(sessions, excludeSessionId).find(
     (session) =>
       session.spaceId === spaceId &&
       session.date === date &&
-      session.status !== "cancelled" &&
       rangesOverlap(startTime, endTime, session.startTime, session.endTime),
   );
 
@@ -111,6 +132,76 @@ export const canSelectTimeRange = (context: SlotContext): boolean => {
       undefined &&
     getConflictingAdminBlock(context.spaceId, context.date, context.selectedStartTime, endTime, context.adminBlocks) ===
       undefined
+  );
+};
+
+export const getUserDailyBlocks = (
+  userId: string,
+  date: string,
+  meetings: readonly Meeting[],
+  sessions: readonly ReservationSession[],
+  excludeSessionId?: string,
+): number => {
+  const meetingIds = meetings.filter((meeting) => meeting.applicantUserId === userId).map((meeting) => meeting.id);
+  return activeSessions(sessions, excludeSessionId)
+    .filter((session) => meetingIds.includes(session.meetingId) && session.date === date)
+    .reduce((total, session) => total + session.blockCount, 0);
+};
+
+export const validateReservationSave = (input: SaveValidationInput): SaveValidationResult => {
+  const reasons: string[] = [...getChecklistLabels(input.user)];
+  const endTime = addBlocks(input.startTime, input.blockCount);
+  const currentUsedBlocks = getUserUsedBlocks(input.user.id, {
+    meetings: input.meetings,
+    sessions: activeSessions(input.sessions, input.excludeSessionId),
+  });
+  const dailyBlocks = getUserDailyBlocks(
+    input.user.id,
+    input.date,
+    input.meetings,
+    input.sessions,
+    input.excludeSessionId,
+  );
+
+  if (currentUsedBlocks + input.blockCount > input.user.maxBlocks) {
+    reasons.push(`Level ${input.user.level} 신청 가능 블록 초과`);
+  }
+  if (!hasMeetingSessionCapacity(input.meetingId, input.sessions, input.excludeSessionId)) {
+    reasons.push("한 모임은 최대 6회차까지 신청 가능");
+  }
+  if (hasUserOtherSpaceOnDate(input.user.id, input.spaceId, input.date, input.meetings, input.sessions, input.excludeSessionId)) {
+    reasons.push("하루에는 하나의 공간만 예약 가능");
+  }
+  if (dailyBlocks + input.blockCount > MAX_DAILY_BLOCKS) {
+    reasons.push("하루 최대 4시간 초과");
+  }
+  if (toMinutes(input.startTime) < toMinutes(OPEN_TIME) || toMinutes(endTime) > toMinutes(CLOSE_TIME)) {
+    reasons.push("운영 시간 범위 초과");
+  }
+  if (getConflictingReservation(input.spaceId, input.date, input.startTime, endTime, input.sessions, input.excludeSessionId) !== undefined) {
+    reasons.push("기존 예약과 시간이 겹침");
+  }
+  if (getConflictingAdminBlock(input.spaceId, input.date, input.startTime, endTime, input.adminBlocks) !== undefined) {
+    reasons.push("관리자 차단 일정과 시간이 겹침");
+  }
+
+  return {
+    canSave: reasons.length === 0,
+    reasons,
+  };
+};
+
+export const hasUserOtherSpaceOnDate = (
+  userId: string,
+  spaceId: string,
+  date: string,
+  meetings: readonly Meeting[],
+  sessions: readonly ReservationSession[],
+  excludeSessionId?: string,
+): boolean => {
+  const meetingIds = meetings.filter((meeting) => meeting.applicantUserId === userId).map((meeting) => meeting.id);
+  return activeSessions(sessions, excludeSessionId).some(
+    (session) => meetingIds.includes(session.meetingId) && session.date === date && session.spaceId !== spaceId,
   );
 };
 
