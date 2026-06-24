@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { AdminPage } from "./components/AdminPage";
 import { CalendarView } from "./components/CalendarView";
+import { EligibilityPanel } from "./components/EligibilityPanel";
 import { MeetingForm } from "./components/MeetingForm";
 import { MyMeetings } from "./components/MyMeetings";
+import { ParticipantLogin } from "./components/ParticipantLogin";
+import { ParticipantSummary } from "./components/ParticipantSummary";
 import { PublicReservationList } from "./components/PublicReservationList";
 import { SpaceDetail } from "./components/SpaceDetail";
 import { SpaceLanding } from "./components/SpaceLanding";
@@ -18,7 +21,7 @@ import {
   prepareSessionUpdate,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
-import type { AdminBlock, EligibilityResult, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
+import type { AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
 
@@ -29,7 +32,7 @@ export function App() {
   const [meetings, setMeetings] = useState<readonly Meeting[]>(initialMeetings);
   const [sessions, setSessions] = useState<readonly ReservationSession[]>(initialSessions);
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(initialAdminBlocks);
-  const [selectedUserId, setSelectedUserId] = useState(initialUsers[0]?.id ?? "");
+  const [authenticatedUserId, setAuthenticatedUserId] = useState<string | undefined>();
   const [selectedSpaceId, setSelectedSpaceId] = useState(initialSpaces[0]?.id ?? "");
   const [selectedDate, setSelectedDate] = useState("2026-06-27");
   const [selectedStartTime, setSelectedStartTime] = useState("09:00");
@@ -37,27 +40,31 @@ export function App() {
   const [purpose, setPurpose] = useState("생활 주제 활동을 함께 기획하고 실행합니다.");
 
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces[0];
-  const selectedUser = users.find((user) => user.id === selectedUserId) ?? users[0];
+  const authenticatedUser = users.find((user) => user.id === authenticatedUserId);
   const eligibility = useMemo(
-    () => buildEligibility(selectedUser, meetings, sessions, selectedDate, selectedSpaceId),
-    [selectedUser, meetings, sessions, selectedDate, selectedSpaceId],
+    () => authenticatedUser === undefined
+      ? undefined
+      : buildEligibility(authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId),
+    [authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId],
   );
   const saveValidation = useMemo(
-    () => validateCurrentSelection({
-      selectedUser,
-      selectedSpace,
-      selectedDate,
-      selectedStartTime,
-      meetingName,
-      purpose,
-      meetings,
-      sessions,
-      adminBlocks,
-    }),
-    [selectedUser, selectedSpace, selectedDate, selectedStartTime, meetingName, purpose, meetings, sessions, adminBlocks],
+    () => authenticatedUser === undefined
+      ? undefined
+      : validateCurrentSelection({
+          selectedUser: authenticatedUser,
+          selectedSpace,
+          selectedDate,
+          selectedStartTime,
+          meetingName,
+          purpose,
+          meetings,
+          sessions,
+          adminBlocks,
+        }),
+    [authenticatedUser, selectedSpace, selectedDate, selectedStartTime, meetingName, purpose, meetings, sessions, adminBlocks],
   );
 
-  if (selectedSpace === undefined || selectedUser === undefined) {
+  if (selectedSpace === undefined) {
     return <main className="p-6 text-[#172014]">초기 mock data를 확인해주세요.</main>;
   }
 
@@ -80,25 +87,16 @@ export function App() {
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-5 px-4 py-5">
-        {mode === "user" ? (
+        {mode === "user" && authenticatedUser === undefined ? (
+          <ParticipantLogin users={users} onAuthenticated={(user) => setAuthenticatedUserId(user.id)} />
+        ) : mode === "user" && eligibility !== undefined && saveValidation !== undefined && authenticatedUser !== undefined ? (
           <div className="grid gap-5 lg:grid-cols-[1.35fr_0.9fr]">
             <div className="grid gap-5">
-              <div className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-                <label className="grid gap-1 text-sm font-bold text-[#172014]">
-                  신청자 선택
-                  <select
-                    value={selectedUserId}
-                    onChange={(event) => setSelectedUserId(event.target.value)}
-                    className="rounded-lg border border-[#DDE8D6] bg-white px-3 py-2 font-medium"
-                  >
-                    {users.map((user) => (
-                      <option key={user.id} value={user.id}>
-                        {user.name} / Level {user.level} / {user.phoneLast4}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              <ParticipantSummary
+                user={authenticatedUser}
+                eligibility={eligibility}
+                onLogout={() => setAuthenticatedUserId(undefined)}
+              />
               <SpaceLanding spaces={spaces} selectedSpaceId={selectedSpace.id} onSelectSpace={setSelectedSpaceId} />
               <SpaceDetail space={selectedSpace} />
               <CalendarView selectedDate={selectedDate} onSelectDate={setSelectedDate} />
@@ -112,9 +110,9 @@ export function App() {
               />
             </div>
             <aside className="grid content-start gap-5">
-              <EligibilityPanel eligibility={eligibility} user={selectedUser} />
+              <EligibilityPanel eligibility={eligibility} user={authenticatedUser} />
               <MeetingForm
-                selectedUser={selectedUser}
+                selectedUser={authenticatedUser}
                 eligibility={eligibility}
                 saveValidation={saveValidation}
                 meetingName={meetingName}
@@ -123,7 +121,7 @@ export function App() {
                 onMeetingNameChange={setMeetingName}
                 onPurposeChange={setPurpose}
                 onSubmit={() => saveReservation({
-                  selectedUser,
+                  selectedUser: authenticatedUser,
                   selectedSpace,
                   selectedDate,
                   selectedStartTime,
@@ -138,17 +136,17 @@ export function App() {
               />
               <PublicReservationList meetings={meetings} sessions={sessions} spaces={spaces} />
               <MyMeetings
-                userId={selectedUser.id}
+                userId={authenticatedUser.id}
                 meetings={meetings}
                 sessions={sessions}
                 spaces={spaces}
                 adminBlocks={adminBlocks}
-                user={selectedUser}
+                user={authenticatedUser}
                 onUpdateSession={(sessionId, values) => {
                   const result = prepareSessionUpdate({
                     sessionId,
                     values,
-                    selectedUser,
+                    selectedUser: authenticatedUser,
                     meetings,
                     sessions,
                     adminBlocks,
@@ -184,32 +182,6 @@ const tabClass = (active: boolean): string =>
   `rounded-lg px-4 py-2 text-sm font-extrabold transition ${
     active ? "bg-[#77B82A] text-white" : "border border-[#DDE8D6] bg-white text-[#5B6856] hover:border-[#77B82A]"
   }`;
-
-function EligibilityPanel({ eligibility, user }: { readonly eligibility: EligibilityResult; readonly user: ParticipantUser }) {
-  return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-[#172014]">예약 가능 여부</h2>
-          <p className="text-sm text-[#5B6856]">{user.name} · Level {user.level}</p>
-        </div>
-        <span className={`rounded-full px-3 py-1 text-sm font-extrabold ${eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
-          {eligibility.canReserve ? "예약 가능" : "예약 불가"}
-        </span>
-      </div>
-      <div className="mt-3 rounded-lg bg-[#F7FBF4] p-3 text-sm text-[#5B6856]">
-        사용 블록 {eligibility.usedBlocks} / 최대 {user.maxBlocks}, 잔여 {eligibility.remainingBlocks}
-      </div>
-      {eligibility.missingRequirements.length > 0 && (
-        <ul className="mt-3 grid gap-2 text-sm text-[#C9443E]">
-          {eligibility.missingRequirements.map((requirement) => (
-            <li key={requirement} className="rounded-lg bg-[#FCEBEA] px-3 py-2">{requirement} 필요</li>
-          ))}
-        </ul>
-      )}
-    </section>
-  );
-}
 
 type SaveReservationInput = {
   readonly selectedUser: ParticipantUser;
