@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { addBlocks } from "../lib/date";
 import { getOperatingHoursForDate, getTimeSlots } from "../lib/reservationRules";
-import { getSelectedTimeRange, toggleBlockTime } from "../lib/timeSelection";
-import type { AdminBlock, OperatingHour, ReservationSession } from "../types/reservation";
+import { getHourBlockTimes, getSelectedTimeRange, toggleHourSlot } from "../lib/timeSelection";
+import type { AdminBlock, OperatingHour, ReservationSession, TimeSlotStatus } from "../types/reservation";
 
 type TimeBlockSelectorProps = {
   readonly spaceId: string;
@@ -13,7 +14,14 @@ type TimeBlockSelectorProps = {
   readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
 };
 
-const slotClass = (status: string): string => {
+type HourSlot = {
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly status: TimeSlotStatus;
+  readonly label: string;
+};
+
+const slotClass = (status: TimeSlotStatus): string => {
   switch (status) {
     case "available":
       return "border-[#DDE8D6] bg-white text-[#172014] hover:border-[#77B82A]";
@@ -30,7 +38,7 @@ const slotClass = (status: string): string => {
 
 export function TimeBlockSelector(props: TimeBlockSelectorProps) {
   const [selectionMessage, setSelectionMessage] = useState<string | undefined>();
-  const slots = getTimeSlots(props);
+  const slots = getHourlySlots(getTimeSlots(props));
   const hours = getOperatingHoursForDate(props.date, props.operatingHours);
   const selectedRange = getSelectedTimeRange(props.selectedBlockTimes);
   return (
@@ -41,7 +49,7 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           <p className="text-sm text-[#5B6856]">
             {hours === undefined || hours.isClosed
               ? "선택한 날짜는 이 공간의 운영일이 아닙니다."
-              : `운영시간 ${hours.openTime}-${hours.closeTime} · 30분 블록을 연속으로 선택합니다.`}
+              : `운영시간 ${hours.openTime}-${hours.closeTime} · 1시간 슬롯을 연속으로 선택합니다.`}
           </p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-sm font-bold text-[#5F9820]">
@@ -54,16 +62,16 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           return (
             <button
               type="button"
-              key={slot.time}
+              key={slot.startTime}
               disabled={!selectable}
               onClick={() => {
-                const result = toggleBlockTime(props.selectedBlockTimes, slot.time);
+                const result = toggleHourSlot(props.selectedBlockTimes, slot.startTime);
                 props.onChangeSelectedBlockTimes(result.selectedBlockTimes);
                 setSelectionMessage(result.message);
               }}
               className={`min-h-16 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-70 ${slotClass(slot.status)}`}
             >
-              <span className="block font-bold">{slot.time}</span>
+              <span className="block font-bold">{slot.startTime}-{slot.endTime}</span>
               <span className="block text-xs">{slot.label}</span>
             </button>
           );
@@ -92,4 +100,53 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
       </div>
     </section>
   );
+}
+
+function getHourlySlots(slots: readonly { readonly time: string; readonly status: TimeSlotStatus }[]): readonly HourSlot[] {
+  const slotsByTime = new Map(slots.map((slot) => [slot.time, slot]));
+  return slots
+    .filter((slot) => Number(slot.time.slice(3, 5)) === 0)
+    .map((slot) => {
+      const hourBlockTimes = getHourBlockTimes(slot.time);
+      const blockSlots = hourBlockTimes.map((time) => slotsByTime.get(time));
+      const isCompleteHour = blockSlots.every((blockSlot) => blockSlot !== undefined);
+      if (!isCompleteHour) {
+        return undefined;
+      }
+      const statuses = blockSlots.map((blockSlot) => blockSlot?.status);
+      const status = getHourStatus(statuses);
+      return {
+        startTime: slot.time,
+        endTime: addBlocks(slot.time, 2),
+        status,
+        label: getHourLabel(status),
+      };
+    })
+    .filter((slot): slot is HourSlot => slot !== undefined);
+}
+
+function getHourStatus(statuses: readonly (TimeSlotStatus | undefined)[]): TimeSlotStatus {
+  if (statuses.includes("reserved")) {
+    return "reserved";
+  }
+  if (statuses.includes("blocked")) {
+    return "blocked";
+  }
+  if (statuses.every((status) => status === "selected")) {
+    return "selected";
+  }
+  return "available";
+}
+
+function getHourLabel(status: TimeSlotStatus): string {
+  switch (status) {
+    case "available":
+      return "1시간 선택 가능";
+    case "reserved":
+      return "예약됨";
+    case "blocked":
+      return "관리자 차단";
+    case "selected":
+      return "선택";
+  }
 }

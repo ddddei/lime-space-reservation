@@ -84,9 +84,9 @@ export function App() {
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-5 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-extrabold text-[#5F9820]">Lime Space Reservation</p>
-            <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">청년동 공간 및 생활지향형 공간 예약</h1>
+            <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">생활지향형 제휴공간 예약</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5B6856]">
-              기획안, 예산안, 홍보물, 관리자 최종 승인을 모두 충족한 참여자만 예약할 수 있는 mock 기반 운영 규칙 보강 구현입니다.
+              기획안, 예산안, 홍보물, 관리자 최종 승인을 모두 충족한 참여자만 제휴공간 예약을 신청할 수 있습니다.
             </p>
           </div>
           <div className="flex gap-2">
