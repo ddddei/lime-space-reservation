@@ -52,11 +52,11 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       <UserHero {...props} />
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.45fr)_minmax(360px,0.7fr)]">
         <div className="grid gap-8">
-          <StepFrame step="STEP 1" title="공간 고르기" description="오늘의 모임에 맞는 장면을 선택하세요.">
+          <StepFrame step="1단계" title="공간 고르기" description="오늘의 모임에 맞는 공간을 선택하세요.">
             <SpaceLanding spaces={props.spaces} selectedSpaceId={props.selectedSpace.id} onSelectSpace={props.onSelectSpace} />
           </StepFrame>
           <SpaceDetail space={props.selectedSpace} />
-          <StepFrame step="STEP 2" title="날짜 고르기" description="예약 흐름은 선택한 공간 기준으로 계산됩니다.">
+          <StepFrame step="2단계" title="날짜 고르기" description="선택한 공간 기준으로 예약 상태를 확인합니다.">
             <CalendarView
               selectedDate={props.selectedDate}
               selectedSpace={props.selectedSpace}
@@ -65,7 +65,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
               onSelectDate={props.onSelectDate}
             />
           </StepFrame>
-          <StepFrame step="STEP 3" title="시간 고르기" description="1시간 슬롯을 연속으로 선택할 수 있습니다.">
+          <StepFrame step="3단계" title="시간 고르기" description="1시간 슬롯을 연속으로 선택할 수 있습니다.">
             <TimeBlockSelector
               spaceId={props.selectedSpace.id}
               date={props.selectedDate}
@@ -76,7 +76,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </StepFrame>
-          <StepFrame step="STEP 4" title="모임 신청" description="모임의 이름과 목적만 간단히 남겨 주세요.">
+          <StepFrame step="4단계" title="모임 신청" description="모임 이름과 목적을 간단히 남겨 주세요.">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -134,9 +134,9 @@ function UserHero(props: UserReservationFlowProps) {
     <section className="overflow-hidden rounded-[32px] border border-[#DDE8D6] bg-white p-6 md:p-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
         <div>
-          <p className="text-sm font-extrabold text-[#5F9820]">Life IS Meaningful Encounters</p>
+          <p className="text-sm font-extrabold text-[#5F9820]">의미 있는 만남을 위한 공간</p>
           <h2 className="mt-3 max-w-3xl text-4xl font-black leading-[1.05] text-[#172014] md:text-6xl">
-            생활지향형 제휴공간 예약
+            생활밀착형 제휴공간 예약
           </h2>
           <p className="mt-5 max-w-2xl text-base leading-7 text-[#5B6856] md:text-lg">
             승인된 호스트만 제휴공간을 예약할 수 있습니다. 공간을 고르고, 날짜와 시간을 잇고, 모임을 시작하세요.

@@ -1,3 +1,4 @@
+import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import type { Space } from "../types/reservation";
 
 type SpaceCardProps = {
@@ -25,8 +26,9 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
       </div>
       <div className="space-y-3 p-4">
         <div>
+          <p className="text-xs font-bold text-[#5F9820]">{getSpaceCategoryLabel(space.category)}</p>
           {space.parentSpaceName !== undefined && (
-            <p className="text-xs font-bold text-[#819078]">{space.parentSpaceName}</p>
+            <p className="mt-1 text-xs font-bold text-[#819078]">{space.parentSpaceName}</p>
           )}
           <h3 className="mt-1 text-xl font-black text-[#172014]">{space.name}</h3>
         </div>

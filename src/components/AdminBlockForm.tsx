@@ -7,16 +7,40 @@ type AdminBlockFormProps = {
   readonly onAddBlock: (block: AdminBlock) => void;
 };
 
+const defaultVisibleCount = 6;
+
 export function AdminBlockForm({ spaces, adminBlocks, onAddBlock }: AdminBlockFormProps) {
   const firstSpace = spaces[0];
+  const [showAllBlocks, setShowAllBlocks] = useState(false);
   const [spaceId, setSpaceId] = useState(firstSpace?.id ?? "");
   const [date, setDate] = useState("2026-06-30");
   const [startTime, setStartTime] = useState("16:00");
   const [endTime, setEndTime] = useState("18:00");
   const [reason, setReason] = useState("공간 정비");
+  const sortedBlocks = [...adminBlocks].sort((first, second) =>
+    `${second.date} ${second.startTime}`.localeCompare(`${first.date} ${first.startTime}`),
+  );
+  const visibleBlocks = showAllBlocks ? sortedBlocks : sortedBlocks.slice(0, defaultVisibleCount);
+
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-      <h2 className="text-lg font-bold text-[#172014]">관리자 차단 일정 등록</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[#172014]">관리자 차단 일정 등록</h2>
+          <p className="mt-1 text-xs font-semibold text-[#819078]">
+            전체 {adminBlocks.length}건 중 {visibleBlocks.length}건 표시
+          </p>
+        </div>
+        {adminBlocks.length > defaultVisibleCount && (
+          <button
+            type="button"
+            onClick={() => setShowAllBlocks((current) => !current)}
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A]"
+          >
+            {showAllBlocks ? "접기" : "더보기"}
+          </button>
+        )}
+      </div>
       <div className="mt-3 grid gap-3 md:grid-cols-5">
         <select value={spaceId} onChange={(event) => setSpaceId(event.target.value)} className="rounded-lg border border-[#DDE8D6] px-3 py-2">
           {spaces.map((space) => (
@@ -49,11 +73,17 @@ export function AdminBlockForm({ spaces, adminBlocks, onAddBlock }: AdminBlockFo
         <input value={reason} onChange={(event) => setReason(event.target.value)} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium" />
       </label>
       <div className="mt-3 grid gap-2">
-        {adminBlocks.map((block) => {
+        {visibleBlocks.map((block) => {
           const space = spaces.find((item) => item.id === block.spaceId);
           return (
-            <div key={block.id} className="rounded-lg bg-[#FFF6E3] p-2 text-sm text-[#B76E00]">
-              {space?.name ?? "공간 없음"} · {block.date} {block.startTime}-{block.endTime} · {block.reason}
+            <div key={block.id} className="rounded-lg border border-[#F4E1B8] bg-[#FFF6E3] px-3 py-2 text-sm text-[#B76E00]">
+              <span className="font-extrabold">{space?.name ?? "공간 없음"}</span>
+              <span className="mx-2 text-[#D79A31]">·</span>
+              <span>{block.date}</span>
+              <span className="mx-2 text-[#D79A31]">·</span>
+              <span>{block.startTime}-{block.endTime}</span>
+              <span className="mx-2 text-[#D79A31]">·</span>
+              <span>{block.reason}</span>
             </div>
           );
         })}

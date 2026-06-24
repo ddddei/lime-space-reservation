@@ -1,3 +1,4 @@
+import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import type { Space } from "../types/reservation";
 
 type SpaceDetailProps = {
@@ -9,7 +10,7 @@ export function SpaceDetail({ space }: SpaceDetailProps) {
     <section className="rounded-[32px] border border-[#DDE8D6] bg-white p-6 md:p-8">
       <div className="grid gap-5 md:grid-cols-[1fr_auto] md:items-end">
         <div>
-          <p className="text-xs font-black text-[#5F9820]">Selected space</p>
+          <p className="text-xs font-black text-[#5F9820]">{getSpaceCategoryLabel(space.category)} · 선택한 공간</p>
           <h2 className="mt-2 text-3xl font-black leading-tight text-[#172014] md:text-4xl">{space.name}</h2>
           {space.parentSpaceName !== undefined && (
             <p className="mt-2 text-sm font-semibold text-[#819078]">{space.parentSpaceName}</p>
@@ -24,7 +25,7 @@ export function SpaceDetail({ space }: SpaceDetailProps) {
             {feature}
           </span>
         ))}
-        </div>
+      </div>
     </section>
   );
 }

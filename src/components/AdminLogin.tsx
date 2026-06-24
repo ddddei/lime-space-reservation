@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { findAdminByNameAndPhone } from "../lib/participantAuth";
 import type { AdminAuthResult } from "../lib/participantAuth";
 import type { Admin } from "../types/reservation";
@@ -13,28 +13,28 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
   const [phone, setPhone] = useState("");
   const [authResult, setAuthResult] = useState<AdminAuthResult | undefined>();
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (name.trim().length === 0 || phone.trim().length === 0) {
+      return;
+    }
+    const result = findAdminByNameAndPhone(name, phone, admins);
+    setAuthResult(result);
+    if (result.status === "found") {
+      onAuthenticated(result.admin);
+    }
+  };
+
   return (
     <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (name.trim().length === 0 || phone.trim().length === 0) {
-          return;
-        }
-        submitAdminCheck({
-          name,
-          phone,
-          admins,
-          setAuthResult,
-          onAuthenticated,
-        });
-      }}
+      onSubmit={handleSubmit}
       className="mx-auto grid max-w-2xl gap-4 rounded-[24px] border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
     >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인</p>
         <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">등록된 관리자만 접근할 수 있습니다</h2>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">
-          Admins 시트에 등록된 관리자 이름과 전체 전화번호로 권한을 확인합니다.
+          등록된 관리자 이름과 전체 전화번호로 권한을 확인합니다.
         </p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -77,20 +77,4 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
       </button>
     </form>
   );
-}
-
-type SubmitAdminInput = {
-  readonly name: string;
-  readonly phone: string;
-  readonly admins: readonly Admin[];
-  readonly setAuthResult: (result: AdminAuthResult) => void;
-  readonly onAuthenticated: (admin: Admin) => void;
-};
-
-function submitAdminCheck(input: SubmitAdminInput): void {
-  const result = findAdminByNameAndPhone(input.name, input.phone, input.admins);
-  input.setAuthResult(result);
-  if (result.status === "found") {
-    input.onAuthenticated(result.admin);
-  }
 }

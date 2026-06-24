@@ -65,7 +65,7 @@ export function App() {
   );
 
   if (selectedSpace === undefined) {
-    return <main className="p-6 text-[#172014]">초기 mock data를 확인해주세요.</main>;
+    return <main className="p-6 text-[#172014]">초기 데이터를 확인해주세요.</main>;
   }
 
   return (
@@ -73,8 +73,11 @@ export function App() {
       <header className="border-b border-[#DDE8D6] bg-white backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-sm font-extrabold text-[#5F9820]">Lime Space Reservation</p>
-            <h1 className="text-xl font-black leading-tight md:text-2xl">생활지향형 제휴공간 예약</h1>
+            <p className="text-sm font-extrabold text-[#5F9820]">라임 공간 예약</p>
+            <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">생활밀착형 제휴공간 예약</h1>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5B6856]">
+              승인된 호스트만 제휴공간을 예약할 수 있습니다.
+            </p>
           </div>
           <div className="flex gap-2">
             <button type="button" onClick={() => setMode("user")} className={tabClass(mode === "user")}>사용자 화면</button>

@@ -11,8 +11,9 @@ type PublicReservationListProps = {
 };
 
 export function PublicReservationList({ meetings, sessions, spaces, selectedSpaceId, selectedDate }: PublicReservationListProps) {
+  const publicSpaceIds = new Set(spaces.filter((space) => space.isActive && space.isPublicVisible).map((space) => space.id));
   const rows = sessions
-    .filter((session) => session.status !== "cancelled")
+    .filter((session) => session.status !== "cancelled" && publicSpaceIds.has(session.spaceId))
     .map((session, index) => {
       const meeting = meetings.find((item) => item.id === session.meetingId);
       const space = spaces.find((item) => item.id === session.spaceId);

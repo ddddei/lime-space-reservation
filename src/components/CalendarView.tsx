@@ -31,7 +31,7 @@ export function CalendarView(props: CalendarViewProps) {
     <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4 md:p-5">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-xs font-black text-[#5F9820]">Calendar</p>
+          <p className="text-xs font-black text-[#5F9820]">날짜 선택</p>
           <h3 className="mt-1 text-xl font-black text-[#172014]">{props.selectedSpace.name}</h3>
         </div>
         <div className="flex rounded-full border border-[#DDE8D6] bg-[#F7FBF4] p-1">

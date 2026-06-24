@@ -20,10 +20,10 @@ export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLa
     <section className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <p className="max-w-xl text-sm leading-6 text-[#5B6856]">
-          이미지와 태그를 보고 오늘의 모임에 어울리는 장면을 골라 주세요.
+          원하는 생활밀착형 제휴공간을 고르고 예약 가능한 시간을 확인하세요.
         </p>
         <span className="rounded-full border border-[#DDE8D6] px-3 py-1 text-xs font-bold text-[#819078]">
-          {activeSpaces.length} spaces
+          {activeSpaces.length}개 공간
         </span>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

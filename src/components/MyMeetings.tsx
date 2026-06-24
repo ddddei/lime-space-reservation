@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { addBlocks, getCalendarDates, getTimeRange } from "../lib/date";
+import { getMeetingStatusLabel } from "../lib/displayLabels";
 import { validateReservationSave } from "../lib/reservationRules";
 import type { AdminBlock, Meeting, ParticipantUser, ReservationSession, SaveValidationResult, Space } from "../types/reservation";
 
@@ -42,7 +43,9 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                   <h3 className="font-bold text-[#172014]">{meeting.meetingName}</h3>
                   <p className="text-sm text-[#5B6856]">{meeting.purpose}</p>
                 </div>
-                <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5F9820]">{meeting.status}</span>
+                <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5F9820]">
+                  {getMeetingStatusLabel(meeting.status)}
+                </span>
               </div>
               <div className="mt-3 grid gap-2">
                 {meetingSessions.map((session) => {

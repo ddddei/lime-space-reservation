@@ -39,7 +39,7 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
         <label className="grid gap-1 text-sm font-bold text-[#172014]">
           카테고리
           <select value={category} onChange={(event) => setCategory(event.target.value as SpaceCategory)} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium">
-            <option value="lifestyle">생활지향형 제휴공간</option>
+            <option value="lifestyle">생활밀착형 제휴공간</option>
             <option value="youth-building">청년동 공간</option>
           </select>
         </label>

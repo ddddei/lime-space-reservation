@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { findParticipantByNameAndPhone } from "../lib/participantAuth";
 import type { ParticipantAuthResult } from "../lib/participantAuth";
 import type { ParticipantUser } from "../types/reservation";
@@ -13,28 +13,30 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
   const [phone, setPhone] = useState("");
   const [authResult, setAuthResult] = useState<ParticipantAuthResult | undefined>();
 
+  const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    if (name.trim().length === 0 || phone.trim().length === 0) {
+      return;
+    }
+    submitParticipantCheck({
+      name,
+      phone,
+      users,
+      setAuthResult,
+      onAuthenticated,
+    });
+  };
+
   return (
     <form
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (name.trim().length === 0 || phone.trim().length === 0) {
-          return;
-        }
-        submitParticipantCheck({
-          name,
-          phone,
-          users,
-          setAuthResult,
-          onAuthenticated,
-        });
-      }}
+      onSubmit={handleSubmit}
       className="mx-auto grid max-w-3xl gap-5 rounded-[28px] border border-[#DDE8D6] bg-white p-6 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
     >
       <div>
-        <p className="text-sm font-extrabold text-[#5F9820]">Host check-in</p>
-        <h2 className="mt-2 text-3xl font-extrabold leading-tight text-[#172014]">승인된 호스트만 예약할 수 있습니다</h2>
+        <p className="text-sm font-extrabold text-[#5F9820]">참여자 본인 확인</p>
+        <h2 className="mt-2 text-3xl font-extrabold leading-tight text-[#172014]">등록된 참여자만 예약할 수 있습니다</h2>
         <p className="mt-3 text-sm leading-6 text-[#5B6856]">
-          이름과 전체 전화번호를 입력해 예약 대상자 여부를 확인해 주세요.
+          등록된 이름과 전체 전화번호로 확인합니다.
         </p>
       </div>
 
