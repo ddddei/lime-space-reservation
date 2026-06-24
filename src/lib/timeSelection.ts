@@ -1,6 +1,8 @@
 import { MAX_DAILY_BLOCKS } from "../data/settings";
 import { addBlocks, toMinutes } from "./date";
 
+const HOUR_BLOCK_COUNT = 2;
+
 export type SelectedTimeRange = {
   readonly startTime: string;
   readonly endTime: string;
@@ -32,7 +34,7 @@ export const getSelectedTimeRange = (selectedBlockTimes: readonly string[]): Sel
     endTime,
     blockCount,
     durationHours,
-    label: `${startTime}~${endTime} / ${blockCount}블록 / ${formatDuration(durationHours)}`,
+    label: `${startTime}~${endTime} / ${formatDuration(durationHours)} / ${blockCount}블록`,
   };
 };
 
@@ -66,6 +68,42 @@ export const toggleBlockTime = (currentTimes: readonly string[], time: string): 
   return {
     selectedBlockTimes: currentTimes,
     message: "선택 시간은 연속되어야 합니다. 양끝 블록부터 해제해 주세요.",
+  };
+};
+
+export const getHourBlockTimes = (startTime: string): readonly string[] => [
+  startTime,
+  addBlocks(startTime, HOUR_BLOCK_COUNT - 1),
+];
+
+export const toggleHourSlot = (currentTimes: readonly string[], startTime: string): ToggleBlockResult => {
+  const hourBlockTimes = getHourBlockTimes(startTime);
+  const hasHourSlot = hourBlockTimes.every((time) => currentTimes.includes(time));
+  const candidate = hasHourSlot
+    ? currentTimes.filter((time) => !hourBlockTimes.includes(time))
+    : [...currentTimes, ...hourBlockTimes];
+
+  if (candidate.length > MAX_DAILY_BLOCKS) {
+    return {
+      selectedBlockTimes: currentTimes,
+      message: "하루 최대 4시간(1시간 슬롯 4개)까지만 선택할 수 있습니다.",
+    };
+  }
+
+  if (areContinuousBlocks(candidate)) {
+    return { selectedBlockTimes: sortBlockTimes(candidate) };
+  }
+
+  if (!hasHourSlot) {
+    return {
+      selectedBlockTimes: hourBlockTimes,
+      message: "떨어진 시간대를 선택해 새 시간 구간으로 다시 시작했습니다.",
+    };
+  }
+
+  return {
+    selectedBlockTimes: currentTimes,
+    message: "선택 시간은 연속되어야 합니다. 양끝 1시간 슬롯부터 해제해 주세요.",
   };
 };
 

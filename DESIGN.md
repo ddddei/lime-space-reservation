@@ -2,7 +2,7 @@
 
 ## 1. Atmosphere & Identity
 
-밝고 신뢰감 있는 지역 플랫폼이다. 신청자는 쉽게 길을 찾고, 관리자는 조건과 상태를 빠르게 판단하는 작업대처럼 느껴져야 한다. 시그니처는 라임 그린 액센트와 깨끗한 표면 위에 놓인 명확한 상태 배지다.
+블랙 배경 위에 라임 그린이 선명하게 올라오는 운영형 플랫폼이다. 신청자는 제휴공간 예약 흐름을 쉽게 따라가고, 관리자는 조건과 상태를 어두운 작업대 위에서 빠르게 판단해야 한다. 시그니처는 오프블랙 표면, 라임 그린 액센트, 대비가 높은 상태 배지다.
 
 ## 2. Color
 
@@ -10,16 +10,16 @@
 
 | Role | Token | Light | Dark | Usage |
 |------|-------|-------|------|-------|
-| Surface/primary | --surface-primary | #F7FBF4 | #101410 | Main background |
-| Surface/secondary | --surface-secondary | #FFFFFF | #171C17 | Cards, panels |
-| Surface/elevated | --surface-elevated | #F1F8EC | #202620 | Modals, highlighted panels |
+| Surface/primary | --surface-primary | #F7FBF4 | #070A07 | Main background |
+| Surface/secondary | --surface-secondary | #FFFFFF | #111711 | Cards, panels |
+| Surface/elevated | --surface-elevated | #F1F8EC | #1A2419 | Modals, highlighted panels |
 | Text/primary | --text-primary | #172014 | #F5FAF2 | Headlines, body |
 | Text/secondary | --text-secondary | #5B6856 | #B7C6B0 | Captions, hints |
 | Text/tertiary | --text-tertiary | #819078 | #7E8B78 | Disabled, muted |
-| Border/default | --border-default | #DDE8D6 | #354032 | Dividers, outlines |
-| Border/subtle | --border-subtle | #EBF2E7 | #273024 | Soft separations |
-| Accent/primary | --accent-primary | #77B82A | #9EE05A | CTAs, focus, active controls |
-| Accent/hover | --accent-hover | #5F9820 | #B5ED7A | Hover state |
+| Border/default | --border-default | #DDE8D6 | #2C3A2B | Dividers, outlines |
+| Border/subtle | --border-subtle | #EBF2E7 | #1F2A1E | Soft separations |
+| Accent/primary | --accent-primary | #77B82A | #A6F15B | CTAs, focus, active controls |
+| Accent/hover | --accent-hover | #5F9820 | #C3FF7D | Hover state |
 | Status/success | --status-success | #178A46 | #49D17C | Available, approved |
 | Status/warning | --status-warning | #B76E00 | #F5B64A | Pending, caution |
 | Status/error | --status-error | #C9443E | #F27772 | Blocked, missing |
@@ -29,7 +29,8 @@
 
 - Accent is reserved for primary actions, selected states, and eligibility highlights.
 - Status colors must always appear with text labels, never color alone.
-- No purple/blue gradient backgrounds; the product identity is lime, white, and structured status color.
+- Default mode is dark. Avoid pure black `#000000`; use off-black and dark green-tinted surfaces.
+- No purple/blue gradient backgrounds; the product identity is black, lime, and structured status color.
 
 ## 3. Typography
 
@@ -88,7 +89,7 @@ All spacing derives from 4px.
 ## 5. Components
 
 ### Card
-- **Structure**: bordered white section with title, metadata, and action area.
+- **Structure**: bordered dark section with title, metadata, and action area.
 - **Variants**: selectable, status, admin.
 - **Spacing**: --space-4 on mobile, --space-5 on desktop.
 - **States**: hover border accent, focus ring, disabled opacity.
