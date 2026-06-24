@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { LEVEL_MAX_BLOCKS } from "../data/settings";
 import { getEligibility } from "../lib/reservationRules";
 import type { Meeting, ParticipantUser, ReservationSession, UserLevel } from "../types/reservation";
@@ -19,10 +20,31 @@ const checklistFields: readonly { readonly key: BooleanKey; readonly label: stri
   { key: "isActive", label: "활성" },
 ];
 
+const defaultVisibleCount = 6;
+
 export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: AdminUserChecklistProps) {
+  const [showAll, setShowAll] = useState(false);
+  const visibleUsers = showAll ? users : users.slice(0, defaultVisibleCount);
+
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-      <h2 className="text-lg font-bold text-[#172014]">참여자 체크리스트</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[#172014]">참여자 체크리스트</h2>
+          <p className="mt-1 text-xs font-semibold text-[#819078]">
+            전체 {users.length}명 중 {visibleUsers.length}명 표시
+          </p>
+        </div>
+        {users.length > defaultVisibleCount && (
+          <button
+            type="button"
+            onClick={() => setShowAll((current) => !current)}
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A]"
+          >
+            {showAll ? "접기" : "더보기"}
+          </button>
+        )}
+      </div>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-[940px] w-full border-collapse text-left text-sm">
           <thead>
@@ -38,11 +60,11 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
             </tr>
           </thead>
           <tbody>
-            {users.map((user) => {
+            {visibleUsers.map((user) => {
               const eligibility = getEligibility(user, { meetings, sessions });
               return (
                 <tr key={user.id} className="border-b border-[#EBF2E7]">
-                  <td className="py-3 pr-3 font-bold text-[#172014]">
+                  <td className="py-2 pr-3 font-bold text-[#172014]">
                     {user.name}
                     <span className="block text-xs font-medium text-[#819078]">{user.phone}</span>
                   </td>

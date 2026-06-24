@@ -1,11 +1,9 @@
+import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import type { Space } from "../types/reservation";
 
 type SpaceDetailProps = {
   readonly space: Space;
 };
-
-const categoryText = (category: Space["category"]): string =>
-  category === "youth-building" ? "청년동 공간" : "생활지향형 공간";
 
 export function SpaceDetail({ space }: SpaceDetailProps) {
   return (
@@ -14,7 +12,7 @@ export function SpaceDetail({ space }: SpaceDetailProps) {
       <div className="space-y-4 p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-[#5F9820]">{categoryText(space.category)}</p>
+            <p className="text-xs font-bold text-[#5F9820]">{getSpaceCategoryLabel(space.category)}</p>
             <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">{space.name}</h2>
             {space.parentSpaceName !== undefined && (
               <p className="mt-1 text-sm font-semibold text-[#819078]">{space.parentSpaceName}</p>

@@ -1,3 +1,4 @@
+import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import type { Space } from "../types/reservation";
 
 type SpaceCardProps = {
@@ -5,9 +6,6 @@ type SpaceCardProps = {
   readonly isSelected: boolean;
   readonly onSelect: (spaceId: string) => void;
 };
-
-const categoryLabel = (category: Space["category"]): string =>
-  category === "youth-building" ? "청년동 공간" : "생활지향형 공간";
 
 export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
   return (
@@ -22,7 +20,7 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
       <div className="space-y-3 p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-bold text-[#5F9820]">{categoryLabel(space.category)}</p>
+            <p className="text-xs font-bold text-[#5F9820]">{getSpaceCategoryLabel(space.category)}</p>
             <h3 className="mt-1 text-lg font-bold text-[#172014]">{space.name}</h3>
             {space.parentSpaceName !== undefined && (
               <p className="mt-1 text-xs font-semibold text-[#819078]">{space.parentSpaceName}</p>

@@ -23,7 +23,7 @@ export function CalendarView(props: CalendarViewProps) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">월간 예약 현황</h2>
-          <p className="text-sm text-[#5B6856]">{props.selectedSpace.name} 기준 2026년 7월-8월 예약 가능 상태입니다.</p>
+          <p className="text-sm text-[#5B6856]">{props.selectedSpace.name} 기준 예약 상태입니다.</p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-xs font-bold text-[#5F9820]">선택일 {props.selectedDate}</span>
       </div>
@@ -64,7 +64,7 @@ function MonthCalendar(props: CalendarViewProps & { readonly monthIndex: number 
               }`}
             >
               <span className="block text-sm font-extrabold text-[#172014]">{Number(date.slice(8, 10))}</span>
-              <span className={`mt-2 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${status.className}`}>
+              <span className={`mt-2 inline-flex whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-bold ${status.className}`}>
                 {status.label}
               </span>
             </button>
@@ -113,13 +113,13 @@ function getDateStatus(
   }).length;
 
   if (unavailableBlocks >= blockTimes.length) {
-    return { label: "예약 불가", className: "bg-[#FCEBEA] text-[#C9443E]" };
+    return { label: "불가", className: "bg-[#FCEBEA] text-[#C9443E]" };
   }
   if (unavailableBlocks >= Math.ceil(blockTimes.length * 0.6)) {
-    return { label: "예약 많음", className: "bg-[#FFF6E3] text-[#B76E00]" };
+    return { label: "많음", className: "bg-[#FFF6E3] text-[#B76E00]" };
   }
   if (unavailableBlocks > 0) {
-    return { label: "일부 예약", className: "bg-[#E8F5DE] text-[#5F9820]" };
+    return { label: "일부", className: "bg-[#E8F5DE] text-[#5F9820]" };
   }
-  return { label: "예약 가능", className: "bg-[#F1F8EC] text-[#5F9820]" };
+  return { label: "가능", className: "bg-[#F1F8EC] text-[#5F9820]" };
 }

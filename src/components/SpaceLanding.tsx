@@ -20,9 +20,9 @@ export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLa
     <section className="space-y-4">
       <div>
         <p className="text-sm font-bold text-[#5F9820]">공간 선택</p>
-        <h2 className="text-2xl font-extrabold text-[#172014]">생활지향형 제휴공간</h2>
+        <h2 className="text-2xl font-extrabold text-[#172014]">생활밀착형 제휴공간</h2>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">
-          제휴공간은 실제 예약 가능한 세부 공간 단위로 운영됩니다. 청년동 공간은 이 화면에서 신청하지 않고 담당자와 별도 조율합니다.
+          원하는 제휴공간을 고르고 예약 가능한 시간을 확인하세요.
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

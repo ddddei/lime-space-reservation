@@ -1,3 +1,4 @@
+import { getAdminRoleLabel } from "../lib/displayLabels";
 import type { Admin } from "../types/reservation";
 
 type AdminSummaryProps = {
@@ -12,7 +13,7 @@ export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
         <div>
           <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인 완료</p>
           <h2 className="mt-1 text-xl font-extrabold text-[#172014]">{admin.name}</h2>
-          <p className="mt-1 text-sm text-[#5B6856]">권한 {admin.role}</p>
+          <p className="mt-1 text-sm text-[#5B6856]">권한 {getAdminRoleLabel(admin.role)}</p>
         </div>
         <button
           type="button"
