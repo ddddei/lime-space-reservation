@@ -17,15 +17,16 @@ export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLa
       return first.sortOrder - second.sortOrder;
     });
   return (
-    <section className="space-y-4">
-      <div>
-        <p className="text-sm font-bold text-[#5F9820]">공간 선택</p>
-        <h2 className="text-2xl font-extrabold text-[#172014]">생활지향형 제휴공간</h2>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">
-          제휴공간은 실제 예약 가능한 세부 공간 단위로 운영됩니다. 청년동 공간은 이 화면에서 신청하지 않고 담당자와 별도 조율합니다.
+    <section className="space-y-5">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="max-w-xl text-sm leading-6 text-[#5B6856]">
+          이미지와 태그를 보고 오늘의 모임에 어울리는 장면을 골라 주세요.
         </p>
+        <span className="rounded-full border border-[#DDE8D6] px-3 py-1 text-xs font-bold text-[#819078]">
+          {activeSpaces.length} spaces
+        </span>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {activeSpaces.map((space) => (
           <SpaceCard key={space.id} space={space} isSelected={space.id === selectedSpaceId} onSelect={onSelectSpace} />
         ))}

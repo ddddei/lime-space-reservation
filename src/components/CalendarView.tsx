@@ -1,6 +1,7 @@
-import { addBlocks, formatDateValue, getTimeRangeBetween } from "../lib/date";
+import { useState } from "react";
+import { addBlocks, formatDateLabel, formatDateValue, getTimeRangeBetween } from "../lib/date";
 import { getConflictingAdminBlock, getConflictingReservation, getOperatingHoursForDate } from "../lib/reservationRules";
-import type { AdminBlock, ReservationSession, Space } from "../types/reservation";
+import type { AdminBlock, OperatingHour, ReservationSession, Space } from "../types/reservation";
 
 type CalendarViewProps = {
   readonly selectedDate: string;
@@ -10,67 +11,111 @@ type CalendarViewProps = {
   readonly onSelectDate: (date: string) => void;
 };
 
-type DateStatus = {
-  readonly label: string;
-  readonly className: string;
+type DateMetrics = {
+  readonly label: "예약 가능" | "일부 예약" | "예약 많음" | "예약 불가" | "휴무";
+  readonly toneClass: string;
+  readonly operatingHours?: OperatingHour;
+  readonly totalBlocks: number;
+  readonly unavailableBlocks: number;
+  readonly reservedMeetingCount: number;
+  readonly hasAdminBlock: boolean;
 };
 
 const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
+const seasonMonths = [6, 7] as const;
 
 export function CalendarView(props: CalendarViewProps) {
+  const [visibleMonthIndex, setVisibleMonthIndex] = useState(getMonthIndex(props.selectedDate));
+  const selectedMetrics = getDateMetrics(props.selectedDate, props.selectedSpace, props.sessions, props.adminBlocks);
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4 md:p-5">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-[#172014]">월간 예약 현황</h2>
-          <p className="text-sm text-[#5B6856]">{props.selectedSpace.name} 기준 2026년 7월-8월 예약 가능 상태입니다.</p>
+          <p className="text-xs font-black text-[#5F9820]">Calendar</p>
+          <h3 className="mt-1 text-xl font-black text-[#172014]">{props.selectedSpace.name}</h3>
         </div>
-        <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-xs font-bold text-[#5F9820]">선택일 {props.selectedDate}</span>
+        <div className="flex rounded-full border border-[#DDE8D6] bg-[#F7FBF4] p-1">
+          {seasonMonths.map((monthIndex) => (
+            <button
+              type="button"
+              key={monthIndex}
+              onClick={() => setVisibleMonthIndex(monthIndex)}
+              className={`rounded-full px-4 py-2 text-xs font-black transition ${
+                visibleMonthIndex === monthIndex ? "bg-[#77B82A] text-white" : "text-[#5B6856] hover:text-[#172014]"
+              }`}
+            >
+              {monthIndex + 1}월
+            </button>
+          ))}
+        </div>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {[6, 7].map((monthIndex) => (
-          <MonthCalendar key={monthIndex} monthIndex={monthIndex} {...props} />
-        ))}
-      </div>
+      <MonthCalendar monthIndex={visibleMonthIndex} {...props} />
+      <SelectedDateSummary date={props.selectedDate} metrics={selectedMetrics} />
     </section>
   );
 }
 
 function MonthCalendar(props: CalendarViewProps & { readonly monthIndex: number }) {
   const dates = getMonthGridDates(2026, props.monthIndex);
-  const monthLabel = `${props.monthIndex + 1}월`;
   return (
-    <div className="rounded-lg border border-[#EBF2E7] p-3">
-      <h3 className="mb-3 text-sm font-extrabold text-[#172014]">{monthLabel}</h3>
+    <div className="rounded-[20px] border border-[#EBF2E7] bg-[#F7FBF4] p-3">
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-[#819078]">
         {weekdays.map((weekday) => (
           <span key={weekday}>{weekday}</span>
         ))}
       </div>
-      <div className="mt-1 grid grid-cols-7 gap-1">
+      <div className="mt-2 grid grid-cols-7 gap-1">
         {dates.map((date, index) => {
           if (date === undefined) {
-            return <div key={`blank-${index}`} className="min-h-20 rounded-lg bg-[#F7FBF4]" />;
+            return <div key={`blank-${index}`} className="min-h-14 rounded-xl bg-[#F7FBF4]/60 md:min-h-16" />;
           }
-          const status = getDateStatus(date, props.selectedSpace, props.sessions, props.adminBlocks);
+          const metrics = getDateMetrics(date, props.selectedSpace, props.sessions, props.adminBlocks);
           const selected = props.selectedDate === date;
           return (
             <button
               type="button"
               key={date}
               onClick={() => props.onSelectDate(date)}
-              className={`min-h-20 rounded-lg border p-1.5 text-left transition ${
+              className={`min-h-14 rounded-xl border p-2 text-left transition md:min-h-16 ${
                 selected ? "border-[#77B82A] bg-[#E8F5DE] ring-2 ring-[#77B82A]/20" : "border-[#DDE8D6] bg-white hover:border-[#77B82A]"
               }`}
+              aria-label={`${date} ${metrics.label}`}
             >
-              <span className="block text-sm font-extrabold text-[#172014]">{Number(date.slice(8, 10))}</span>
-              <span className={`mt-2 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-bold ${status.className}`}>
-                {status.label}
+              <span className="block text-sm font-black text-[#172014]">{Number(date.slice(8, 10))}</span>
+              <span className="mt-2 flex items-center gap-1.5">
+                <span className={`h-1.5 w-1.5 rounded-full ${metrics.toneClass}`} aria-hidden="true" />
+                {metrics.label !== "예약 가능" && (
+                  <span className="truncate text-[10px] font-bold text-[#5B6856]">{shortStatus(metrics.label)}</span>
+                )}
               </span>
             </button>
           );
         })}
       </div>
+    </div>
+  );
+}
+
+function SelectedDateSummary({ date, metrics }: { readonly date: string; readonly metrics: DateMetrics }) {
+  const availableBlocks = Math.max(0, metrics.totalBlocks - metrics.unavailableBlocks);
+  const operatingText = metrics.operatingHours === undefined || metrics.operatingHours.isClosed
+    ? "운영 없음"
+    : `${metrics.operatingHours.openTime}-${metrics.operatingHours.closeTime}`;
+  return (
+    <div className="mt-4 grid gap-2 rounded-[20px] border border-[#DDE8D6] bg-white p-4 sm:grid-cols-4">
+      <SummaryItem label="선택한 날짜" value={formatDateLabel(date)} />
+      <SummaryItem label="운영시간" value={operatingText} />
+      <SummaryItem label="예약 가능" value={`${availableBlocks / 2}시간`} />
+      <SummaryItem label="예약/차단" value={`${metrics.reservedMeetingCount}건 · ${metrics.hasAdminBlock ? "차단 있음" : "차단 없음"}`} />
+    </div>
+  );
+}
+
+function SummaryItem({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div>
+      <p className="text-[11px] font-bold text-[#819078]">{label}</p>
+      <p className="mt-1 text-sm font-black text-[#172014]">{value}</p>
     </div>
   );
 }
@@ -88,22 +133,19 @@ function getMonthGridDates(year: number, monthIndex: number): readonly (string |
   return dates;
 }
 
-function getDateStatus(
+function getDateMetrics(
   date: string,
   space: Space,
   sessions: readonly ReservationSession[],
   adminBlocks: readonly AdminBlock[],
-): DateStatus {
-  const hours = getOperatingHoursForDate(date, space.operatingHours);
-  if (hours === undefined || hours.isClosed) {
-    return { label: "휴무", className: "bg-[#EEF0EA] text-[#5B6856]" };
+): DateMetrics {
+  const operatingHours = getOperatingHoursForDate(date, space.operatingHours);
+  if (operatingHours === undefined || operatingHours.isClosed) {
+    return createDateMetrics("휴무", "bg-[#819078]", operatingHours, 0, 0, 0, false);
   }
 
-  const blockTimes = getTimeRangeBetween(hours.openTime, hours.closeTime);
-  if (blockTimes.length === 0) {
-    return { label: "휴무", className: "bg-[#EEF0EA] text-[#5B6856]" };
-  }
-
+  const blockTimes = getTimeRangeBetween(operatingHours.openTime, operatingHours.closeTime);
+  const reservedMeetingCount = sessions.filter((session) => session.status !== "cancelled" && session.spaceId === space.id && session.date === date).length;
   const unavailableBlocks = blockTimes.filter((time) => {
     const blockEnd = addBlocks(time, 1);
     return (
@@ -111,15 +153,47 @@ function getDateStatus(
       getConflictingAdminBlock(space.id, date, time, blockEnd, adminBlocks) !== undefined
     );
   }).length;
+  const hasAdminBlock = adminBlocks.some((block) => block.isActive && block.spaceId === space.id && block.date === date);
 
   if (unavailableBlocks >= blockTimes.length) {
-    return { label: "예약 불가", className: "bg-[#FCEBEA] text-[#C9443E]" };
+    return createDateMetrics("예약 불가", "bg-[#C9443E]", operatingHours, blockTimes.length, unavailableBlocks, reservedMeetingCount, hasAdminBlock);
   }
   if (unavailableBlocks >= Math.ceil(blockTimes.length * 0.6)) {
-    return { label: "예약 많음", className: "bg-[#FFF6E3] text-[#B76E00]" };
+    return createDateMetrics("예약 많음", "bg-[#B76E00]", operatingHours, blockTimes.length, unavailableBlocks, reservedMeetingCount, hasAdminBlock);
   }
   if (unavailableBlocks > 0) {
-    return { label: "일부 예약", className: "bg-[#E8F5DE] text-[#5F9820]" };
+    return createDateMetrics("일부 예약", "bg-[#77B82A]", operatingHours, blockTimes.length, unavailableBlocks, reservedMeetingCount, hasAdminBlock);
   }
-  return { label: "예약 가능", className: "bg-[#F1F8EC] text-[#5F9820]" };
+  return createDateMetrics("예약 가능", "bg-[#5F9820]", operatingHours, blockTimes.length, unavailableBlocks, reservedMeetingCount, hasAdminBlock);
+}
+
+function createDateMetrics(
+  label: DateMetrics["label"],
+  toneClass: string,
+  operatingHours: OperatingHour | undefined,
+  totalBlocks: number,
+  unavailableBlocks: number,
+  reservedMeetingCount: number,
+  hasAdminBlock: boolean,
+): DateMetrics {
+  return { label, toneClass, operatingHours, totalBlocks, unavailableBlocks, reservedMeetingCount, hasAdminBlock };
+}
+
+function getMonthIndex(date: string): 6 | 7 {
+  return date.slice(5, 7) === "08" ? 7 : 6;
+}
+
+function shortStatus(label: DateMetrics["label"]): string {
+  switch (label) {
+    case "예약 가능":
+      return "";
+    case "일부 예약":
+      return "예약";
+    case "예약 많음":
+      return "많음";
+    case "예약 불가":
+      return "불가";
+    case "휴무":
+      return "휴무";
+  }
 }

@@ -14,12 +14,27 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
   const [authResult, setAuthResult] = useState<ParticipantAuthResult | undefined>();
 
   return (
-    <section className="mx-auto grid max-w-3xl gap-4 rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (name.trim().length === 0 || phone.trim().length === 0) {
+          return;
+        }
+        submitParticipantCheck({
+          name,
+          phone,
+          users,
+          setAuthResult,
+          onAuthenticated,
+        });
+      }}
+      className="mx-auto grid max-w-3xl gap-5 rounded-[28px] border border-[#DDE8D6] bg-white p-6 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+    >
       <div>
-        <p className="text-sm font-extrabold text-[#5F9820]">참여자 본인 확인</p>
-        <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">등록된 참여자만 예약을 신청할 수 있습니다</h2>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">
-          Users 시트에 등록된 이름과 전체 전화번호로 확인합니다. 전화번호 뒤 4자리는 화면 표시와 공개 현황 마스킹에만 사용합니다.
+        <p className="text-sm font-extrabold text-[#5F9820]">Host check-in</p>
+        <h2 className="mt-2 text-3xl font-extrabold leading-tight text-[#172014]">승인된 호스트만 예약할 수 있습니다</h2>
+        <p className="mt-3 text-sm leading-6 text-[#5B6856]">
+          이름과 전체 전화번호를 입력해 예약 대상자 여부를 확인해 주세요.
         </p>
       </div>
 
@@ -57,20 +72,13 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
       )}
 
       <button
-        type="button"
-        onClick={() => submitParticipantCheck({
-          name,
-          phone,
-          users,
-          setAuthResult,
-          onAuthenticated,
-        })}
+        type="submit"
         className="rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
       >
         참여자 확인
       </button>
-    </section>
+    </form>
   );
 }
 

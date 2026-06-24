@@ -14,7 +14,22 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
   const [authResult, setAuthResult] = useState<AdminAuthResult | undefined>();
 
   return (
-    <section className="mx-auto grid max-w-2xl gap-4 rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (name.trim().length === 0 || phone.trim().length === 0) {
+          return;
+        }
+        submitAdminCheck({
+          name,
+          phone,
+          admins,
+          setAuthResult,
+          onAuthenticated,
+        });
+      }}
+      className="mx-auto grid max-w-2xl gap-4 rounded-[24px] border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+    >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인</p>
         <h2 className="mt-1 text-2xl font-extrabold text-[#172014]">등록된 관리자만 접근할 수 있습니다</h2>
@@ -54,20 +69,28 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
         </div>
       )}
       <button
-        type="button"
-        onClick={() => {
-          const result = findAdminByNameAndPhone(name, phone, admins);
-          setAuthResult(result);
-          if (result.status === "found") {
-            onAuthenticated(result.admin);
-          }
-        }}
+        type="submit"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
         className="rounded-lg bg-[#172014] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#2F3B2A] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
         관리자 로그인
       </button>
-    </section>
+    </form>
   );
 }
 
+type SubmitAdminInput = {
+  readonly name: string;
+  readonly phone: string;
+  readonly admins: readonly Admin[];
+  readonly setAuthResult: (result: AdminAuthResult) => void;
+  readonly onAuthenticated: (admin: Admin) => void;
+};
+
+function submitAdminCheck(input: SubmitAdminInput): void {
+  const result = findAdminByNameAndPhone(input.name, input.phone, input.admins);
+  input.setAuthResult(result);
+  if (result.status === "found") {
+    input.onAuthenticated(result.admin);
+  }
+}
