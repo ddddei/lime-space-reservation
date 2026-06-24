@@ -12,6 +12,7 @@ type SpaceAdminEditorProps = {
 export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdminEditorProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [expandedSpaceIds, setExpandedSpaceIds] = useState<readonly string[]>([]);
+  const [featureDrafts, setFeatureDrafts] = useState<Readonly<Record<string, string>>>({});
   const nextSortOrder = Math.max(0, ...spaces.map((space) => space.sortOrder)) + 1;
 
   return (
@@ -124,8 +125,19 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                   <label className="grid gap-1 text-sm font-bold text-[#172014]">
                     특징
                     <input
-                      value={space.features.join(", ")}
-                      onChange={(event) => onUpdateSpace({ ...space, features: parseFeatures(event.target.value) })}
+                      value={featureDrafts[space.id] ?? space.features.join(", ")}
+                      onChange={(event) => setFeatureDrafts((current) => ({ ...current, [space.id]: event.target.value }))}
+                      onBlur={() => {
+                        const draft = featureDrafts[space.id];
+                        if (draft === undefined) {
+                          return;
+                        }
+                        const features = parseFeatures(draft);
+                        if (!areFeaturesEqual(space.features, features)) {
+                          onUpdateSpace({ ...space, features });
+                        }
+                        setFeatureDrafts((current) => removeDraft(current, space.id));
+                      }}
                       className={inputClassName}
                     />
                   </label>
@@ -192,6 +204,20 @@ function parseFeatures(value: string): readonly string[] {
     .split(",")
     .map((feature) => feature.trim())
     .filter((feature) => feature.length > 0);
+}
+
+function areFeaturesEqual(first: readonly string[], second: readonly string[]): boolean {
+  return first.length === second.length && first.every((feature, index) => feature === second[index]);
+}
+
+function removeDraft(current: Readonly<Record<string, string>>, spaceId: string): Readonly<Record<string, string>> {
+  const next: Record<string, string> = {};
+  for (const [id, draft] of Object.entries(current)) {
+    if (id !== spaceId) {
+      next[id] = draft;
+    }
+  }
+  return next;
 }
 
 function updateCapacity(space: Space, value: string, onUpdateSpace: (space: Space) => void): void {
