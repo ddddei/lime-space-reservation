@@ -35,6 +35,9 @@ export function MeetingForm(props: MeetingFormProps) {
             onChange={(event) => props.onMeetingNameChange(event.target.value)}
             className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
           />
+          <span className="text-xs font-medium text-[#819078]">
+            테스트 신청은 모임명에 "테스트_삭제예정"을 포함해 실제 신청과 구분해 주세요.
+          </span>
         </label>
       </div>
       <div className="mt-4 rounded-[18px] bg-[#F7FBF4] p-4 text-sm text-[#5B6856]">
@@ -70,7 +73,7 @@ export function MeetingForm(props: MeetingFormProps) {
         aria-busy={props.isSubmitting}
         className="mt-4 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
-        {props.isSubmitting ? "저장 중" : "회차 신청 저장"}
+        {props.isSubmitting ? "신청 중..." : "모임공간 신청하기"}
       </button>
       {props.submitError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">

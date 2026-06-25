@@ -24,6 +24,11 @@ import type {
 } from "../types/reservation";
 import type { SelectedTimeRange } from "../lib/timeSelection";
 
+const RESERVATION_SUBMIT_SUCCESS_MESSAGE: readonly [string, string] = [
+  "모임공간 신청이 접수되었습니다.",
+  "담당자 확인 후 최종 확정 안내를 드립니다.",
+];
+
 type UserReservationFlowProps = {
   readonly authenticatedUser: ParticipantUser;
   readonly eligibility: EligibilityResult;
@@ -50,7 +55,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>();
-  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | undefined>();
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<readonly [string, string] | undefined>();
 
   const openReservation = (spaceId: string): void => {
     props.onSelectSpace(spaceId);
@@ -61,6 +66,9 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
   };
 
   const handleSubmitReservation = async (): Promise<void> => {
+    if (isSubmitting) {
+      return;
+    }
     if (!props.authenticatedUser.hasAdminApproval) {
       setSubmitError(RESERVATION_APPROVAL_GUIDE_MESSAGE);
       return;
@@ -78,7 +86,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       props.setMeetings((current) => [meeting, ...current]);
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
-    setSubmitSuccessMessage("예약 신청이 완료되었습니다.");
+    setSubmitSuccessMessage(RESERVATION_SUBMIT_SUCCESS_MESSAGE);
     setIsReservationOpen(false);
   };
 
@@ -86,8 +94,12 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
     <div className="grid gap-8">
       <UserHero {...props} />
       {submitSuccessMessage !== undefined && (
-        <div className="rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-3 text-sm font-bold text-[#178A46]">
-          {submitSuccessMessage}
+        <div
+          role="status"
+          className="rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-4 text-sm font-bold text-[#178A46]"
+        >
+          <p>{submitSuccessMessage[0]}</p>
+          <p className="mt-1 font-semibold text-[#5F9820]">{submitSuccessMessage[1]}</p>
         </div>
       )}
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">

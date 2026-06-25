@@ -146,7 +146,7 @@ export const initialSpaces: readonly Space[] = [
     capacity: 8,
     description: "대화형 모임과 작은 프로젝트 회의에 집중할 수 있는 커뮤니티 모임 공간입니다.",
     imageUrl: "https://images.unsplash.com/photo-1497366412874-3415097a27e7?auto=format&fit=crop&w=900&q=80",
-    features: ["06:00-22:00", "대화형 배치", "소그룹"],
+    features: ["08:00-22:00", "대화형 배치", "소그룹"],
     operatingHours: chitChatHours,
     isActive: true,
     isPublicVisible: true,
