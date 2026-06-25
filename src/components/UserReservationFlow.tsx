@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { EligibilityPanel } from "./EligibilityPanel";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
@@ -12,6 +12,7 @@ import {
 } from "../lib/mockReservationActions";
 import { RESERVATION_APPROVAL_GUIDE_MESSAGE } from "../lib/permissions";
 import { canUseMockFallback, submitReservationApplication } from "../lib/supabaseReservationApi";
+import { getSessionStatusLabel } from "../lib/displayLabels";
 import type {
   AdminBlock,
   EligibilityResult,
@@ -23,11 +24,6 @@ import type {
   SpaceImage,
 } from "../types/reservation";
 import type { SelectedTimeRange } from "../lib/timeSelection";
-
-const RESERVATION_SUBMIT_SUCCESS_MESSAGE: readonly [string, string] = [
-  "모임공간 신청이 접수되었습니다.",
-  "담당자 확인 후 최종 확정 안내를 드립니다.",
-];
 
 type UserReservationFlowProps = {
   readonly authenticatedUser: ParticipantUser;
@@ -48,25 +44,28 @@ type UserReservationFlowProps = {
   readonly onSelectDate: (date: string) => void;
   readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
   readonly onMeetingNameChange: (value: string) => void;
+  readonly onCancelSession: (sessionId: string) => Promise<SessionActionResult>;
   readonly onLogout: () => void;
-  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
 };
 
-type CompletedApplication = {
+export type SessionActionResult =
+  | { readonly status: "ok" }
+  | { readonly status: "error"; readonly message: string };
+
+type SubmittedReservationSummary = {
   readonly meetingName: string;
   readonly applicantName: string;
   readonly spaceName: string;
   readonly date: string;
-  readonly startTime: string;
-  readonly endTime: string;
+  readonly timeRange: string;
+  readonly status: ReservationSession["status"];
 };
 
 export function UserReservationFlow(props: UserReservationFlowProps) {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>();
-  const [completedApplication, setCompletedApplication] = useState<CompletedApplication | undefined>();
-  const myMeetingsSectionRef = useRef<HTMLDivElement>(null);
+  const [submittedSummary, setSubmittedSummary] = useState<SubmittedReservationSummary | undefined>();
 
   const openReservation = (spaceId: string): void => {
     props.onSelectSpace(spaceId);
@@ -83,8 +82,8 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       setSubmitError(RESERVATION_APPROVAL_GUIDE_MESSAGE);
       return;
     }
-    setIsSubmitting(true);
     setSubmitError(undefined);
+    setIsSubmitting(true);
     const outcome = await submitReservation(props);
     setIsSubmitting(false);
     if (outcome.status === "error") {
@@ -96,15 +95,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       props.setMeetings((current) => [meeting, ...current]);
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
-    const firstSession = outcome.sessions[0];
-    setCompletedApplication({
-      meetingName: outcome.meeting?.meetingName ?? props.meetingName,
-      applicantName: props.authenticatedUser.name,
-      spaceName: props.selectedSpace.name,
-      date: firstSession?.date ?? props.selectedDate,
-      startTime: firstSession?.startTime ?? props.selectedRange?.startTime ?? "",
-      endTime: firstSession?.endTime ?? props.selectedRange?.endTime ?? "",
-    });
+    setSubmittedSummary(buildSubmittedSummary(props, outcome));
     setIsReservationOpen(false);
   };
 
@@ -117,7 +108,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
             <SpaceLanding spaces={props.spaces} selectedSpaceId={props.selectedSpace.id} onSelectSpace={openReservation} />
           </StepFrame>
         </div>
-        <aside ref={myMeetingsSectionRef} className="grid content-start gap-5 xl:sticky xl:top-6 xl:self-start">
+        <aside className="grid content-start gap-5 lg:sticky lg:top-6 lg:self-start">
           <EligibilityPanel eligibility={props.eligibility} user={props.authenticatedUser} />
           <MyMeetings
             userId={props.authenticatedUser.id}
@@ -141,7 +132,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
               }
               return result.validation;
             }}
-            onCancelMeeting={props.onCancelMeeting}
+            onCancelSession={props.onCancelSession}
           />
         </aside>
       </div>
@@ -156,82 +147,12 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
           }}
         />
       )}
-      {completedApplication !== undefined && (
-        <ReservationSuccessModal
-          application={completedApplication}
-          onViewMyMeetings={() => {
-            setCompletedApplication(undefined);
-            myMeetingsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-          }}
-          onViewOtherSpaces={() => setCompletedApplication(undefined)}
-          onClose={() => setCompletedApplication(undefined)}
+      {submittedSummary !== undefined && (
+        <ReservationCompleteDialog
+          summary={submittedSummary}
+          onClose={() => setSubmittedSummary(undefined)}
         />
       )}
-    </div>
-  );
-}
-
-function ReservationSuccessModal(props: {
-  readonly application: CompletedApplication;
-  readonly onViewMyMeetings: () => void;
-  readonly onViewOtherSpaces: () => void;
-  readonly onClose: () => void;
-}) {
-  const { application } = props;
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="reservation-success-title"
-    >
-      <div className="w-full max-w-md rounded-[24px] border border-[#DDE8D6] bg-white p-6 shadow-[0_24px_80px_rgba(7,10,7,0.36)]">
-        <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
-        <h2 id="reservation-success-title" className="mt-2 text-2xl font-black text-[#172014]">
-          {RESERVATION_SUBMIT_SUCCESS_MESSAGE[0]}
-        </h2>
-        <p className="mt-2 text-sm font-semibold text-[#5B6856]">{RESERVATION_SUBMIT_SUCCESS_MESSAGE[1]}</p>
-        <dl className="mt-5 grid gap-2 rounded-lg bg-[#F7FBF4] p-4 text-sm">
-          <SummaryRow label="모임명" value={application.meetingName} />
-          <SummaryRow label="신청자" value={application.applicantName} />
-          <SummaryRow label="공간명" value={application.spaceName} />
-          <SummaryRow label="날짜" value={application.date} />
-          <SummaryRow label="시간" value={`${application.startTime}-${application.endTime}`} />
-          <SummaryRow label="상태" value="신청 접수" />
-        </dl>
-        <div className="mt-6 grid gap-2 sm:grid-cols-3">
-          <button
-            type="button"
-            onClick={props.onViewMyMeetings}
-            className="rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30"
-          >
-            내 신청 확인
-          </button>
-          <button
-            type="button"
-            onClick={props.onViewOtherSpaces}
-            className="rounded-lg border border-[#DDE8D6] px-4 py-3 text-sm font-extrabold text-[#5B6856] transition hover:border-[#77B82A]"
-          >
-            다른 공간 보기
-          </button>
-          <button
-            type="button"
-            onClick={props.onClose}
-            className="rounded-lg border border-[#DDE8D6] px-4 py-3 text-sm font-extrabold text-[#5B6856] transition hover:border-[#77B82A]"
-          >
-            닫기
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SummaryRow({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3">
-      <dt className="font-bold text-[#819078]">{label}</dt>
-      <dd className="font-bold text-[#172014]">{value}</dd>
     </div>
   );
 }
@@ -336,6 +257,50 @@ function ReservationDialog(props: ReservationDialogProps) {
             />
           </aside>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ReservationCompleteDialog({
+  summary,
+  onClose,
+}: {
+  readonly summary: SubmittedReservationSummary;
+  readonly onClose: () => void;
+}) {
+  const rows: readonly { readonly label: string; readonly value: string }[] = [
+    { label: "모임명", value: summary.meetingName },
+    { label: "신청자", value: summary.applicantName },
+    { label: "공간명", value: summary.spaceName },
+    { label: "날짜", value: summary.date },
+    { label: "시간", value: summary.timeRange },
+    { label: "상태", value: getSessionStatusLabel(summary.status) },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="reservation-complete-title">
+      <div className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+        <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
+        <h2 id="reservation-complete-title" className="mt-2 text-2xl font-black text-[#172014]">
+          모임공간 신청이 접수되었습니다.
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">담당자 확인 후 최종 확정 안내를 드립니다.</p>
+        <dl className="mt-5 grid gap-2 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3 text-sm">
+          {rows.map((row) => (
+            <div key={row.label} className="grid grid-cols-[72px_1fr] gap-3">
+              <dt className="font-bold text-[#819078]">{row.label}</dt>
+              <dd className="font-semibold text-[#172014]">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-5 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30"
+        >
+          확인
+        </button>
       </div>
     </div>
   );
@@ -522,4 +487,31 @@ async function submitReservation(input: UserReservationFlowProps): Promise<Submi
     return { status: "error", message: result.message };
   }
   return { status: "ok", meeting: result.meeting, sessions: result.sessions };
+}
+
+function buildSubmittedSummary(
+  input: UserReservationFlowProps,
+  outcome: Extract<SubmitOutcome, { readonly status: "ok" }>,
+): SubmittedReservationSummary {
+  const firstSession = outcome.sessions[0];
+  const meetingName = outcome.meeting?.meetingName ?? input.meetingName.trim();
+  if (firstSession === undefined) {
+    return {
+      meetingName,
+      applicantName: input.authenticatedUser.name,
+      spaceName: input.selectedSpace.name,
+      date: input.selectedDate,
+      timeRange: input.selectedRange?.label ?? "선택 시간 없음",
+      status: "requested",
+    };
+  }
+  const space = input.spaces.find((item) => item.id === firstSession.spaceId);
+  return {
+    meetingName,
+    applicantName: input.authenticatedUser.name,
+    spaceName: space?.name ?? input.selectedSpace.name,
+    date: firstSession.date,
+    timeRange: `${firstSession.startTime}-${firstSession.endTime}`,
+    status: firstSession.status,
+  };
 }

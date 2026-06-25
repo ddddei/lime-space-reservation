@@ -5,9 +5,10 @@ import type { AdminApplication, ReservationSession, Space } from "../types/reser
 type AdminReservationTableProps = {
   readonly applications: readonly AdminApplication[];
   readonly spaces: readonly Space[];
-  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
-  readonly onRefresh: () => void;
   readonly isRefreshing: boolean;
+  readonly refreshError?: string;
+  readonly onRefresh: () => void;
+  readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
 };
 
 type StatusFilter = ReservationSession["status"] | "all";
@@ -21,16 +22,23 @@ const statusOptions: readonly { readonly value: StatusFilter; readonly label: st
   { value: "cancelled", label: "취소됨" },
 ];
 
-export function AdminReservationTable({ applications, spaces, onCancelMeeting, onRefresh, isRefreshing }: AdminReservationTableProps) {
+export function AdminReservationTable({
+  applications,
+  spaces,
+  isRefreshing,
+  refreshError,
+  onRefresh,
+  onCancelSession,
+}: AdminReservationTableProps) {
   const [showAll, setShowAll] = useState(false);
   const [applicantFilter, setApplicantFilter] = useState("");
   const [spaceFilter, setSpaceFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [meetingFilter, setMeetingFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [pendingCancelMeetingId, setPendingCancelMeetingId] = useState<string | undefined>();
-  const [cancellingMeetingId, setCancellingMeetingId] = useState<string | undefined>();
-  const [feedback, setFeedback] = useState<{ readonly type: "success" | "error"; readonly message: string } | undefined>();
+  const [pendingCancel, setPendingCancel] = useState<AdminApplication | undefined>();
+  const [cancellingSessionId, setCancellingSessionId] = useState<string | undefined>();
+  const [cancelError, setCancelError] = useState<string | undefined>();
 
   const rows = useMemo<readonly AdminApplication[]>(() => applications, [applications]);
 
@@ -46,21 +54,6 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
   });
   const visibleRows = showAll ? filteredRows : filteredRows.slice(0, defaultVisibleCount);
 
-  const handleConfirmCancel = (meetingId: string): void => {
-    setPendingCancelMeetingId(undefined);
-    setCancellingMeetingId(meetingId);
-    setFeedback(undefined);
-    void onCancelMeeting(meetingId)
-      .then((result) => {
-        setFeedback(
-          result.ok
-            ? { type: "success", message: "신청이 취소되었습니다." }
-            : { type: "error", message: result.message ?? "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." },
-        );
-      })
-      .finally(() => setCancellingMeetingId(undefined));
-  };
-
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -75,9 +68,9 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:text-[#819078]"
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:bg-[#F7FBF4] disabled:text-[#819078]"
           >
-            {isRefreshing ? "불러오는 중..." : "새로고침"}
+            {isRefreshing ? "새로고침 중" : "새로고침"}
           </button>
           {filteredRows.length > defaultVisibleCount && (
             <button
@@ -90,16 +83,16 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
           )}
         </div>
       </div>
-      {feedback !== undefined && (
-        <div
-          role="status"
-          className={`mt-3 rounded-lg border p-3 text-sm font-bold ${
-            feedback.type === "success"
-              ? "border-[#DDE8D6] bg-[#F1F8EC] text-[#178A46]"
-              : "border-[#F1C5C2] bg-[#FCEBEA] text-[#C9443E]"
-          }`}
-        >
-          {feedback.message}
+      {refreshError !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
+          <p className="font-bold">새로고침 실패</p>
+          <p className="mt-1">{refreshError}</p>
+        </div>
+      )}
+      {cancelError !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
+          <p className="font-bold">신청 취소 실패</p>
+          <p className="mt-1">{cancelError}</p>
         </div>
       )}
       <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_150px]">
@@ -173,7 +166,7 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
           <tbody>
             {visibleRows.map((application) => {
               const isCancelled = application.sessionStatus === "cancelled";
-              const isCancelling = cancellingMeetingId === application.meetingId;
+              const isCancelling = cancellingSessionId === application.sessionId;
               return (
                 <tr key={application.sessionId} className="border-b border-[#EBF2E7]">
                   <td className="py-3 pr-3">
@@ -193,11 +186,14 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
                   <td className="px-3">
                     <button
                       type="button"
-                      disabled={isCancelled || isCancelling}
-                      onClick={() => setPendingCancelMeetingId(application.meetingId)}
+                      disabled={application.sessionStatus === "cancelled" || cancellingSessionId === application.sessionId}
+                      onClick={() => {
+                        setPendingCancel(application);
+                        setCancelError(undefined);
+                      }}
                       className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
                     >
-                      {isCancelling ? "취소 중..." : isCancelled ? "취소됨" : "취소"}
+                      {isCancelling ? "취소 중" : isCancelled ? "취소됨" : "취소"}
                     </button>
                   </td>
                 </tr>
@@ -209,26 +205,51 @@ export function AdminReservationTable({ applications, spaces, onCancelMeeting, o
           <p className="py-6 text-center text-sm font-semibold text-[#819078]">아직 신청 내역이 없습니다.</p>
         )}
       </div>
-      {pendingCancelMeetingId !== undefined && (
-        <CancelConfirmDialog
-          onCancel={() => setPendingCancelMeetingId(undefined)}
-          onConfirm={() => handleConfirmCancel(pendingCancelMeetingId)}
+      {pendingCancel !== undefined && (
+        <ConfirmCancelDialog
+          application={pendingCancel}
+          onClose={() => setPendingCancel(undefined)}
+          onConfirm={() => {
+            const sessionId = pendingCancel.sessionId;
+            setPendingCancel(undefined);
+            setCancellingSessionId(sessionId);
+            void onCancelSession(sessionId).then((result) => {
+              setCancellingSessionId(undefined);
+              if (result.status === "error") {
+                setCancelError(result.message);
+              }
+            });
+          }}
         />
       )}
     </section>
   );
 }
 
-function CancelConfirmDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
+function toStatusFilter(value: string): StatusFilter {
+  return statusOptions.find((option) => option.value === value)?.value ?? "all";
+}
+
+function ConfirmCancelDialog({
+  application,
+  onClose,
+  onConfirm,
+}: {
+  readonly application: AdminApplication;
+  readonly onClose: () => void;
+  readonly onConfirm: () => void;
+}) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title">
       <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
-        <h3 id="admin-cancel-dialog-title" className="text-lg font-black text-[#172014]">이 신청을 취소하시겠습니까?</h3>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">취소 후에는 복구할 수 없습니다.</p>
+        <h3 id="admin-cancel-dialog-title" className="text-lg font-black text-[#172014]">신청 취소</h3>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">
+          {application.meetingName} · {application.spaceName} · {application.date} {application.startTime}-{application.endTime} 신청을 취소할까요?
+        </p>
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
-            onClick={onCancel}
+            onClick={onClose}
             className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
           >
             닫기
@@ -238,14 +259,10 @@ function CancelConfirmDialog({ onCancel, onConfirm }: { readonly onCancel: () =>
             onClick={onConfirm}
             className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
           >
-            취소하기
+            신청 취소
           </button>
         </div>
       </div>
     </div>
   );
-}
-
-function toStatusFilter(value: string): StatusFilter {
-  return statusOptions.find((option) => option.value === value)?.value ?? "all";
 }
