@@ -22,4 +22,4 @@ export const teaPartyHours: readonly OperatingHour[] = [
 
 export const youthBuildingHours = createWeeklyHours("09:00", "21:00");
 export const allDayHours = createWeeklyHours("00:00", "24:00");
-export const chitChatHours = createWeeklyHours("06:00", "22:00");
+export const chitChatHours = createWeeklyHours("08:00", "22:00");

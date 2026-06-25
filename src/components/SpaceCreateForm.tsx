@@ -54,7 +54,7 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
           <select value={operatingPreset} onChange={(event) => setOperatingPreset(event.target.value as OperatingHoursPreset)} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium">
             <option value="all-day">24시간</option>
             <option value="youth-building">청년동 기본</option>
-            <option value="chitchat">칫챗 06:00-22:00</option>
+            <option value="chitchat">칫챗 08:00-22:00</option>
             <option value="tea-party">티파티 요일별</option>
           </select>
         </label>

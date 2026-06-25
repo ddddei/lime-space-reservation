@@ -293,16 +293,13 @@ export const submitReservationApplication = async (
 
   if (response.error !== null) {
     warnSupabaseAuthError("submit_reservation_application RPC", response.error);
-    return {
-      status: "error",
-      message: response.error.message.length > 0 ? response.error.message : "예약 신청을 저장할 수 없습니다.",
-    };
+    return { status: "error", message: toReservationFailureMessage(response.error) };
   }
 
   const rows = response.data ?? [];
   const meeting = mapReservationSubmissionRowsToMeeting(rows);
   if (meeting === undefined) {
-    return { status: "error", message: "예약 신청을 저장할 수 없습니다." };
+    return { status: "error", message: RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE };
   }
 
   return {
@@ -313,6 +310,17 @@ export const submitReservationApplication = async (
 };
 
 export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
+
+const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "모임공간 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+
+// RPC 내부에서 raise exception으로 던진 한국어 검증 메시지(코드 P0001)는 사용자에게 그대로 보여주고,
+// 그 외 네트워크/서버 오류는 사용자에게 기술적인 내용을 노출하지 않도록 안내 문구로 정리한다.
+const toReservationFailureMessage = (error: PostgrestError): string => {
+  if (error.code === "P0001" && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE;
+};
 
 const emptyAdminReadModel = (): AdminReadModel => ({
   participants: [],
