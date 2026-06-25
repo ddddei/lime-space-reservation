@@ -14,7 +14,7 @@ export function ParticipantSummary({ user, eligibility, onLogout }: ParticipantS
           <p className="text-sm font-extrabold text-[#5F9820]">참여자 확인 완료</p>
           <h2 className="mt-1 text-xl font-extrabold text-[#172014]">{user.name}</h2>
           <p className="mt-1 text-sm text-[#5B6856]">
-            전화번호 끝자리 {user.phoneLast4} · Level {user.level}
+            전화번호 끝자리 {user.phoneLast4}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">

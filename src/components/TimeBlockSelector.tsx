@@ -49,11 +49,11 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
           <p className="text-sm text-[#5B6856]">
             {hours === undefined || hours.isClosed
               ? "선택한 날짜는 이 공간의 운영일이 아닙니다."
-              : `운영시간 ${hours.openTime}-${hours.closeTime} · 1시간 슬롯을 연속으로 선택합니다.`}
+              : `운영시간 ${hours.openTime}-${hours.closeTime}`}
           </p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-sm font-bold text-[#5F9820]">
-          {selectedRange === undefined ? "시간 미선택" : `선택 ${selectedRange.label}`}
+          {selectedRange === undefined ? "시간 미선택" : selectedRange.label}
         </span>
       </div>
       <div className="grid max-h-96 grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-4 lg:grid-cols-6">
@@ -71,8 +71,8 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
               }}
               className={`min-h-16 rounded-lg border px-3 py-2 text-left text-sm transition disabled:opacity-70 ${slotClass(slot.status)}`}
             >
-              <span className="block font-bold">{slot.startTime}-{slot.endTime}</span>
-              <span className="block text-xs">{slot.label}</span>
+              <span className="block text-lg font-black">{slot.startTime}</span>
+              <span className="block text-xs font-bold">{slot.label}</span>
             </button>
           );
         })}
@@ -84,7 +84,7 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
       )}
       {selectedRange !== undefined && (
         <div className="mt-3 rounded-lg bg-[#F7FBF4] p-3 text-sm font-semibold text-[#172014]">
-          선택 시간: {selectedRange.label}
+          {selectedRange.label}
         </div>
       )}
       {selectionMessage !== undefined && (
@@ -93,10 +93,10 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
         </div>
       )}
       <div className="mt-3 flex flex-wrap gap-2 text-xs font-semibold">
-        <span className="rounded-full bg-white px-2 py-1 text-[#5B6856] ring-1 ring-[#DDE8D6]">가능</span>
-        <span className="rounded-full bg-[#E8F5DE] px-2 py-1 text-[#172014]">선택</span>
+        <span className="rounded-full bg-white px-2 py-1 text-[#5B6856] ring-1 ring-[#DDE8D6]">선택 가능</span>
+        <span className="rounded-full bg-[#E8F5DE] px-2 py-1 text-[#172014]">선택됨</span>
         <span className="rounded-full bg-[#FCEBEA] px-2 py-1 text-[#C9443E]">예약됨</span>
-        <span className="rounded-full bg-[#FFF6E3] px-2 py-1 text-[#B76E00]">관리자 차단</span>
+        <span className="rounded-full bg-[#FFF6E3] px-2 py-1 text-[#B76E00]">예약 불가</span>
       </div>
     </section>
   );
@@ -141,12 +141,12 @@ function getHourStatus(statuses: readonly (TimeSlotStatus | undefined)[]): TimeS
 function getHourLabel(status: TimeSlotStatus): string {
   switch (status) {
     case "available":
-      return "1시간 선택 가능";
+      return "선택 가능";
     case "reserved":
       return "예약됨";
     case "blocked":
-      return "관리자 차단";
+      return "예약 불가";
     case "selected":
-      return "선택";
+      return "선택됨";
   }
 }

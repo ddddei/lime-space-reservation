@@ -34,7 +34,7 @@ export const getSelectedTimeRange = (selectedBlockTimes: readonly string[]): Sel
     endTime,
     blockCount,
     durationHours,
-    label: `${startTime}~${endTime} / ${formatDuration(durationHours)} / ${blockCount}블록`,
+    label: `${startTime}~${endTime} · ${formatDuration(durationHours)}`,
   };
 };
 
@@ -50,7 +50,7 @@ export const toggleBlockTime = (currentTimes: readonly string[], time: string): 
   if (candidate.length > MAX_DAILY_BLOCKS) {
     return {
       selectedBlockTimes: currentTimes,
-      message: "하루 최대 4시간(8블록)까지만 선택할 수 있습니다.",
+      message: "하루 최대 4시간까지만 선택할 수 있습니다.",
     };
   }
 
@@ -61,13 +61,13 @@ export const toggleBlockTime = (currentTimes: readonly string[], time: string): 
   if (!hasTime) {
     return {
       selectedBlockTimes: [time],
-      message: "떨어진 블록을 선택해 새 시간 구간으로 다시 시작했습니다.",
+      message: "떨어진 시간을 선택해 새 시간 구간으로 다시 시작했습니다.",
     };
   }
 
   return {
     selectedBlockTimes: currentTimes,
-    message: "선택 시간은 연속되어야 합니다. 양끝 블록부터 해제해 주세요.",
+    message: "선택 시간은 연속되어야 합니다. 양끝 시간부터 해제해 주세요.",
   };
 };
 

@@ -32,7 +32,6 @@ export function App() {
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
-  const [purpose, setPurpose] = useState("생활 주제 활동을 함께 기획하고 실행합니다.");
 
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces.find((space) => space.isActive && space.isPublicVisible) ?? spaces[0];
   const authenticatedUser = users.find((user) => user.id === authenticatedUserId);
@@ -48,7 +47,7 @@ export function App() {
     () => authenticatedUser === undefined
       ? undefined
       : selectedRange === undefined
-        ? { canSave: false, reasons: ["시간 블록을 선택해 주세요."] }
+        ? { canSave: false, reasons: ["시간을 선택해 주세요."] }
       : validateCurrentSelection({
           selectedUser: authenticatedUser,
           selectedSpace,
@@ -56,12 +55,12 @@ export function App() {
           selectedStartTime: selectedRange.startTime,
           selectedBlockCount: selectedRange.blockCount,
           meetingName,
-          purpose,
+          purpose: "",
           meetings,
           sessions,
           adminBlocks,
         }),
-    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, purpose, meetings, sessions, adminBlocks],
+    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, meetings, sessions, adminBlocks],
   );
 
   if (selectedSpace === undefined) {
@@ -99,7 +98,6 @@ export function App() {
             selectedBlockTimes={selectedBlockTimes}
             selectedRange={selectedRange}
             meetingName={meetingName}
-            purpose={purpose}
             meetings={meetings}
             sessions={sessions}
             spaces={spaces}
@@ -110,7 +108,6 @@ export function App() {
             onSelectDate={setSelectedDate}
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
-            onPurposeChange={setPurpose}
             onLogout={() => setAuthenticatedUserId(undefined)}
           />
         ) : authenticatedAdmin === undefined ? (

@@ -6,10 +6,8 @@ type MeetingFormProps = {
   readonly eligibility: EligibilityResult;
   readonly saveValidation: SaveValidationResult;
   readonly meetingName: string;
-  readonly purpose: string;
   readonly selectedRange?: SelectedTimeRange;
   readonly onMeetingNameChange: (value: string) => void;
-  readonly onPurposeChange: (value: string) => void;
   readonly onSubmit: () => void;
 };
 
@@ -17,30 +15,21 @@ export function MeetingForm(props: MeetingFormProps) {
   return (
     <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4">
       <div className="mb-4">
-        <h2 className="text-xl font-black text-[#172014]">모임을 시작할 준비</h2>
-        <p className="mt-1 text-sm text-[#5B6856]">짧게 남겨도 충분합니다. 운영 규칙은 저장 직전에 다시 확인합니다.</p>
+        <h2 className="text-xl font-black text-[#172014]">모임명 입력</h2>
+        <p className="mt-1 text-sm text-[#5B6856]">신청자는 로그인 정보로 자동 처리됩니다.</p>
       </div>
       <div className="grid gap-3">
         <label className="grid gap-1 text-sm font-bold text-[#172014]">
           신청자
-          <select className="rounded-lg border border-[#DDE8D6] bg-white px-3 py-2 font-medium" value={props.selectedUser.id} disabled>
-            <option>{props.selectedUser.name} / Level {props.selectedUser.level}</option>
-          </select>
+          <span className="rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-3 py-2 font-medium text-[#172014]">
+            {props.selectedUser.name} · 끝자리 {props.selectedUser.phoneLast4}
+          </span>
         </label>
         <label className="grid gap-1 text-sm font-bold text-[#172014]">
           모임명
           <input
             value={props.meetingName}
             onChange={(event) => props.onMeetingNameChange(event.target.value)}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
-          />
-        </label>
-        <label className="grid gap-1 text-sm font-bold text-[#172014]">
-          목적
-          <textarea
-            value={props.purpose}
-            onChange={(event) => props.onPurposeChange(event.target.value)}
-            rows={3}
             className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
           />
         </label>

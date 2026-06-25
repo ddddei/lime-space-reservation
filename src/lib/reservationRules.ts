@@ -64,7 +64,7 @@ export const getEligibility = (
   const remainingBlocks = Math.max(0, user.maxBlocks - usedBlocks);
   const missingRequirements = [...getChecklistLabels(user)];
   if (remainingBlocks < requestedBlocks) {
-    missingRequirements.push(`Level ${user.level} 신청 가능 블록 초과`);
+    missingRequirements.push("신청 가능 시간 초과");
   }
   return {
     canReserve: missingRequirements.length === 0,
@@ -170,7 +170,7 @@ export const validateReservationSave = (input: SaveValidationInput): SaveValidat
   );
 
   if (currentUsedBlocks + input.blockCount > input.user.maxBlocks) {
-    reasons.push(`Level ${input.user.level} 신청 가능 블록 초과`);
+    reasons.push("신청 가능 시간 초과");
   }
   if (!hasMeetingSessionCapacity(input.meetingId, input.sessions, input.excludeSessionId)) {
     reasons.push("한 모임은 최대 6회차까지 신청 가능");
@@ -188,7 +188,7 @@ export const validateReservationSave = (input: SaveValidationInput): SaveValidat
     reasons.push("기존 예약과 시간이 겹침");
   }
   if (getConflictingAdminBlock(input.spaceId, input.date, input.startTime, endTime, input.adminBlocks) !== undefined) {
-    reasons.push("관리자 차단 일정과 시간이 겹침");
+    reasons.push("예약 불가 시간과 겹침");
   }
 
   return {
@@ -225,7 +225,7 @@ export const getTimeSlots = (context: SlotContext): readonly TimeSlot[] => {
       return { time, status: "reserved", label: "예약됨" };
     }
     if (blocked !== undefined) {
-      return { time, status: "blocked", label: "관리자 차단" };
+      return { time, status: "blocked", label: "예약 불가" };
     }
     if (isSelected) {
       return { time, status: "selected", label: "선택" };
