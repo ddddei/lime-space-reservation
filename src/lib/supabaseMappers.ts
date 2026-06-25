@@ -2,9 +2,11 @@ import type {
   Admin,
   AdminApplication,
   AdminBlock,
+  Meeting,
   MeetingStatus,
   OperatingHour,
   ParticipantUser,
+  ReservationSession,
   SessionStatus,
   Space,
   SpaceCategory,
@@ -101,6 +103,15 @@ export type AdminParticipantRow = {
   readonly is_active: boolean | null;
   readonly created_at: string | null;
   readonly updated_at: string | null;
+};
+
+export type SubmitReservationSessionInput = {
+  readonly space_id: string;
+  readonly date: string;
+  readonly start_time: string;
+  readonly end_time: string;
+  readonly block_count: number;
+  readonly session_index: number;
 };
 
 export type AdminApplicationRow = {
@@ -224,6 +235,44 @@ export const mapAdminApplicationRows = (rows: readonly AdminApplicationRow[]): r
     endTime: row.end_time,
     blockCount: row.block_count ?? 0,
     sessionStatus: mapSessionStatus(row.session_status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+export const mapReservationSubmissionRowsToMeeting = (
+  rows: readonly AdminApplicationRow[],
+): Meeting | undefined => {
+  const first = rows[0];
+  if (first === undefined) {
+    return undefined;
+  }
+  return {
+    id: first.meeting_id,
+    applicantUserId: first.applicant_participant_id,
+    applicantName: first.applicant_name,
+    phoneLast4: first.phone_last4 ?? "",
+    level: mapUserLevel(first.level),
+    meetingName: first.meeting_name,
+    purpose: first.purpose ?? "",
+    status: mapMeetingStatus(first.meeting_status),
+    createdAt: first.created_at,
+    updatedAt: first.updated_at,
+  };
+};
+
+export const mapReservationSubmissionRowsToSessions = (
+  rows: readonly AdminApplicationRow[],
+): readonly ReservationSession[] =>
+  rows.map((row) => ({
+    id: row.session_id,
+    meetingId: row.meeting_id,
+    sessionIndex: row.session_index ?? 1,
+    spaceId: row.space_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    blockCount: row.block_count ?? 0,
+    status: mapSessionStatus(row.session_status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));

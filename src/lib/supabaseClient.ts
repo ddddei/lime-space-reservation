@@ -8,6 +8,7 @@ import type {
   ParticipantVerificationRow,
   SpaceImageRow,
   SpaceRow,
+  SubmitReservationSessionInput,
 } from "./supabaseMappers";
 
 type ReservationDatabase = {
@@ -97,6 +98,14 @@ type ReservationDatabase = {
           readonly input_is_approved: boolean;
         };
         readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
+      readonly submit_reservation_application: {
+        readonly Args: {
+          readonly input_participant_id: string;
+          readonly input_meeting_name: string;
+          readonly input_sessions: readonly SubmitReservationSessionInput[];
+        };
+        readonly Returns: AdminApplicationRow[] | null;
       };
     };
     readonly Enums: Record<string, never>;
