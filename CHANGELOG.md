@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.1.0
+
+### 주요 기능
+
+- 관리자 새로고침 후 로그인 상태 유지
+- 관리자 차단 일정 저장/수정/해제
+- 참가자 화면의 관리자 차단 일정 예약 불가 반영
+- 공간 사용자 노출/숨김
+- 공간 설명, 관리자 메모, 정원, 특징 태그 수정
+
+### 운영 검증
+
+- v1.1 RPC 확인: `upsert_admin_block`, `deactivate_admin_block`, `update_admin_space`
+- QA 종료 후 `meetings = 0`, `sessions = 0` 정리
+
 ## v1.0.0
 
 ### 주요 기능

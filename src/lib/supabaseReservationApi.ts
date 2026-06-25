@@ -93,16 +93,16 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
 
   if (operatingHoursResponse.error !== null) {
     warnSupabaseReadError("operating_hours 조회", operatingHoursResponse.error);
-    return { spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows)), adminBlocks: [], activeSessions: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
   }
 
   if (adminBlocksResponse.error !== null) {
     warnSupabaseReadError("공개 admin_blocks 조회", adminBlocksResponse.error);
-    return { spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows)), adminBlocks: [], activeSessions: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
   }
 
   return {
-    spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows)),
+    spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows),
     adminBlocks: mapAdminBlockRows(adminBlocksResponse.data),
     activeSessions: activeSessionsResponse.sessions,
   };
@@ -237,7 +237,7 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
 
   return {
     participants: mapAdminParticipantRows(participantsResponse.data ?? []),
-    spaces: applySpaceContentOverrides(mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows)),
+    spaces: mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows),
     applications: mapAdminApplicationRows(applicationsResponse.data ?? []),
     adminBlocks: mapAdminBlockRows(blocksResponse.data ?? []).filter((block) => block.isActive),
   };
