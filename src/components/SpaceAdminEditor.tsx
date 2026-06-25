@@ -5,11 +5,12 @@ import type { Space } from "../types/reservation";
 
 type SpaceAdminEditorProps = {
   readonly spaces: readonly Space[];
+  readonly readOnly: boolean;
   readonly onUpdateSpace: (space: Space) => void;
   readonly onAddSpace: (space: Space) => void;
 };
 
-export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdminEditorProps) {
+export function SpaceAdminEditor({ spaces, readOnly, onUpdateSpace, onAddSpace }: SpaceAdminEditorProps) {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [expandedSpaceIds, setExpandedSpaceIds] = useState<readonly string[]>([]);
   const [featureDrafts, setFeatureDrafts] = useState<Readonly<Record<string, string>>>({});
@@ -24,12 +25,18 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
         </div>
         <button
           type="button"
+          disabled={readOnly}
           onClick={() => setShowCreateForm((current) => !current)}
-          className="rounded-lg bg-[#172014] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#2F3B2A]"
+          className="rounded-lg bg-[#172014] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#2F3B2A] disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
         >
-          {showCreateForm ? "새 공간 닫기" : "새 공간 추가"}
+          {readOnly ? "추가 미연동" : showCreateForm ? "새 공간 닫기" : "새 공간 추가"}
         </button>
       </div>
+      {readOnly && (
+        <p className="mt-3 rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
+          Supabase 공간 목록은 전체 조회만 연결되어 있습니다. 저장/수정/삭제 연동은 다음 작업에서 처리합니다.
+        </p>
+      )}
       {showCreateForm && (
         <div className="mt-3 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3">
           <SpaceCreateForm nextSortOrder={nextSortOrder} onAddSpace={onAddSpace} />
@@ -67,6 +74,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                       공간명
                       <input
                         value={space.name}
+                        disabled={readOnly}
                         onChange={(event) => onUpdateSpace({ ...space, name: event.target.value })}
                         className={inputClassName}
                       />
@@ -75,6 +83,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                       상위 공간명
                       <input
                         value={space.parentSpaceName ?? ""}
+                        disabled={readOnly}
                         onChange={(event) => onUpdateSpace({ ...space, parentSpaceName: event.target.value || undefined })}
                         className={inputClassName}
                       />
@@ -84,6 +93,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                       <input
                         type="number"
                         value={space.capacity}
+                        disabled={readOnly}
                         onChange={(event) => updateCapacity(space, event.target.value, onUpdateSpace)}
                         className={inputClassName}
                       />
@@ -94,6 +104,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                       카테고리
                       <select
                         value={space.category}
+                        disabled={readOnly}
                         onChange={(event) => onUpdateSpace({ ...space, category: toSpaceCategory(event.target.value) })}
                         className={inputClassName}
                       >
@@ -105,19 +116,21 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                       사진 URL
                       <input
                         value={space.imageUrl}
+                        disabled={readOnly}
                         onChange={(event) => onUpdateSpace({ ...space, imageUrl: event.target.value })}
                         className={inputClassName}
                       />
                     </label>
                   </div>
                   <div className="flex flex-wrap items-end gap-3 text-sm font-bold text-[#172014]">
-                    <Checkbox label="활성" checked={space.isActive} onChange={(checked) => onUpdateSpace({ ...space, isActive: checked })} />
-                    <Checkbox label="사용자 노출" checked={space.isPublicVisible} onChange={(checked) => onUpdateSpace({ ...space, isPublicVisible: checked })} />
-                    <Checkbox label="관리자 허용 필요" checked={space.requiresAdminUnlock === true} onChange={(checked) => onUpdateSpace({ ...space, requiresAdminUnlock: checked })} />
+                    <Checkbox label="활성" checked={space.isActive} disabled={readOnly} onChange={(checked) => onUpdateSpace({ ...space, isActive: checked })} />
+                    <Checkbox label="사용자 노출" checked={space.isPublicVisible} disabled={readOnly} onChange={(checked) => onUpdateSpace({ ...space, isPublicVisible: checked })} />
+                    <Checkbox label="관리자 허용 필요" checked={space.requiresAdminUnlock === true} disabled={readOnly} onChange={(checked) => onUpdateSpace({ ...space, requiresAdminUnlock: checked })} />
                     <button
                       type="button"
+                      disabled={readOnly}
                       onClick={() => onUpdateSpace({ ...space, isActive: false })}
-                      className="rounded-lg border border-[#F1C5C2] px-3 py-2 text-xs font-extrabold text-[#C9443E]"
+                      className="rounded-lg border border-[#F1C5C2] px-3 py-2 text-xs font-extrabold text-[#C9443E] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
                     >
                       비활성 처리
                     </button>
@@ -126,6 +139,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                     특징
                     <input
                       value={featureDrafts[space.id] ?? space.features.join(", ")}
+                      disabled={readOnly}
                       onChange={(event) => setFeatureDrafts((current) => ({ ...current, [space.id]: event.target.value }))}
                       onBlur={() => {
                         const draft = featureDrafts[space.id];
@@ -145,6 +159,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                     설명
                     <textarea
                       value={space.description}
+                      disabled={readOnly}
                       onChange={(event) => onUpdateSpace({ ...space, description: event.target.value })}
                       rows={2}
                       className={inputClassName}
@@ -154,6 +169,7 @@ export function SpaceAdminEditor({ spaces, onUpdateSpace, onAddSpace }: SpaceAdm
                     관리자 메모
                     <textarea
                       value={space.adminMemo ?? ""}
+                      disabled={readOnly}
                       onChange={(event) => onUpdateSpace({ ...space, adminMemo: event.target.value || undefined })}
                       rows={2}
                       className={inputClassName}
@@ -179,10 +195,10 @@ function StatusChip(props: { readonly active: boolean; readonly activeLabel: str
   );
 }
 
-function Checkbox(props: { readonly label: string; readonly checked: boolean; readonly onChange: (value: boolean) => void }) {
+function Checkbox(props: { readonly label: string; readonly checked: boolean; readonly disabled: boolean; readonly onChange: (value: boolean) => void }) {
   return (
     <label className="flex items-center gap-2">
-      <input type="checkbox" checked={props.checked} onChange={(event) => props.onChange(event.target.checked)} className="h-4 w-4 accent-[#77B82A]" />
+      <input type="checkbox" checked={props.checked} disabled={props.disabled} onChange={(event) => props.onChange(event.target.checked)} className="h-4 w-4 accent-[#77B82A]" />
       {props.label}
     </label>
   );

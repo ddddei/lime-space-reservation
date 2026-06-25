@@ -1,21 +1,15 @@
 import { useMemo, useState } from "react";
 import { getSessionStatusLabel } from "../lib/displayLabels";
-import type { Meeting, ReservationSession, Space } from "../types/reservation";
+import type { AdminApplication, ReservationSession, Space } from "../types/reservation";
 
 type AdminReservationTableProps = {
-  readonly meetings: readonly Meeting[];
-  readonly sessions: readonly ReservationSession[];
+  readonly applications: readonly AdminApplication[];
   readonly spaces: readonly Space[];
+  readonly readOnly: boolean;
   readonly onDeleteSession: (sessionId: string) => void;
 };
 
 type StatusFilter = ReservationSession["status"] | "all";
-
-type ReservationRow = {
-  readonly session: ReservationSession;
-  readonly meeting: Meeting | undefined;
-  readonly space: Space | undefined;
-};
 
 const defaultVisibleCount = 6;
 
@@ -26,7 +20,7 @@ const statusOptions: readonly { readonly value: StatusFilter; readonly label: st
   { value: "cancelled", label: "취소됨" },
 ];
 
-export function AdminReservationTable({ meetings, sessions, spaces, onDeleteSession }: AdminReservationTableProps) {
+export function AdminReservationTable({ applications, spaces, readOnly, onDeleteSession }: AdminReservationTableProps) {
   const [showAll, setShowAll] = useState(false);
   const [applicantFilter, setApplicantFilter] = useState("");
   const [spaceFilter, setSpaceFilter] = useState("all");
@@ -34,23 +28,16 @@ export function AdminReservationTable({ meetings, sessions, spaces, onDeleteSess
   const [meetingFilter, setMeetingFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
 
-  const rows = useMemo<readonly ReservationRow[]>(
-    () => sessions.map((session) => ({
-      session,
-      meeting: meetings.find((item) => item.id === session.meetingId),
-      space: spaces.find((item) => item.id === session.spaceId),
-    })),
-    [meetings, sessions, spaces],
-  );
+  const rows = useMemo<readonly AdminApplication[]>(() => applications, [applications]);
 
   const filteredRows = rows.filter((row) => {
     const applicantKeyword = applicantFilter.trim();
     const meetingKeyword = meetingFilter.trim();
-    const applicantMatches = applicantKeyword.length === 0 || row.meeting?.applicantName.includes(applicantKeyword) === true;
-    const meetingMatches = meetingKeyword.length === 0 || row.meeting?.meetingName.includes(meetingKeyword) === true;
-    const spaceMatches = spaceFilter === "all" || row.session.spaceId === spaceFilter;
-    const dateMatches = dateFilter.length === 0 || row.session.date === dateFilter;
-    const statusMatches = statusFilter === "all" || row.session.status === statusFilter;
+    const applicantMatches = applicantKeyword.length === 0 || row.applicantName.includes(applicantKeyword);
+    const meetingMatches = meetingKeyword.length === 0 || row.meetingName.includes(meetingKeyword);
+    const spaceMatches = spaceFilter === "all" || row.spaceId === spaceFilter;
+    const dateMatches = dateFilter.length === 0 || row.date === dateFilter;
+    const statusMatches = statusFilter === "all" || row.sessionStatus === statusFilter;
     return applicantMatches && meetingMatches && spaceMatches && dateMatches && statusMatches;
   });
   const visibleRows = showAll ? filteredRows : filteredRows.slice(0, defaultVisibleCount);
@@ -143,30 +130,32 @@ export function AdminReservationTable({ meetings, sessions, spaces, onDeleteSess
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map(({ session, meeting, space }) => {
+            {visibleRows.map((application) => {
               return (
-                <tr key={session.id} className="border-b border-[#EBF2E7]">
+                <tr key={application.sessionId} className="border-b border-[#EBF2E7]">
                   <td className="py-3 pr-3">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${session.status === "cancelled" ? "bg-[#FCEBEA] text-[#C9443E]" : "bg-[#F1F8EC] text-[#5F9820]"}`}>
-                      {getSessionStatusLabel(session.status)}
+                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${application.sessionStatus === "cancelled" ? "bg-[#FCEBEA] text-[#C9443E]" : "bg-[#F1F8EC] text-[#5F9820]"}`}>
+                      {getSessionStatusLabel(application.sessionStatus)}
                     </span>
                   </td>
-                  <td className="py-3 pr-3 font-bold text-[#172014]">{meeting?.meetingName ?? "모임 없음"}</td>
+                  <td className="py-3 pr-3 font-bold text-[#172014]">{application.meetingName}</td>
                   <td className="px-3 text-[#5B6856]">
-                    {meeting?.applicantName ?? "신청자 없음"}
-                    <span className="block text-xs text-[#819078]">끝자리 {meeting?.phoneLast4 ?? "0000"}</span>
+                    {application.applicantName}
+                    <span className="block text-xs text-[#819078]">끝자리 {application.phoneLast4 || "없음"}</span>
                   </td>
-                  <td className="px-3 font-semibold text-[#172014]">{space?.name ?? "공간 없음"}</td>
-                  <td className="px-3 text-[#5B6856]">{session.date}</td>
-                  <td className="px-3 font-semibold text-[#172014]">{session.startTime}-{session.endTime}</td>
-                  <td className="px-3 text-[#5B6856]">{session.sessionIndex}</td>
+                  <td className="px-3 font-semibold text-[#172014]">{application.spaceName}</td>
+                  <td className="px-3 text-[#5B6856]">{application.date}</td>
+                  <td className="px-3 font-semibold text-[#172014]">{application.startTime}-{application.endTime}</td>
+                  <td className="px-3 text-[#5B6856]">{application.sessionIndex}</td>
                   <td className="px-3">
                     <button
                       type="button"
-                      onClick={() => onDeleteSession(session.id)}
-                      className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
+                      disabled={readOnly}
+                      onClick={() => onDeleteSession(application.sessionId)}
+                      className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
+                      title={readOnly ? "Supabase 삭제 연동은 다음 작업에서 처리합니다." : undefined}
                     >
-                      삭제
+                      {readOnly ? "삭제 미연동" : "삭제"}
                     </button>
                   </td>
                 </tr>
@@ -175,7 +164,7 @@ export function AdminReservationTable({ meetings, sessions, spaces, onDeleteSess
           </tbody>
         </table>
         {visibleRows.length === 0 && (
-          <p className="py-6 text-center text-sm font-semibold text-[#819078]">조건에 맞는 신청이 없습니다.</p>
+          <p className="py-6 text-center text-sm font-semibold text-[#819078]">아직 신청 내역이 없습니다.</p>
         )}
       </div>
     </section>

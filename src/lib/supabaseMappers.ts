@@ -1,4 +1,15 @@
-import type { Admin, AdminBlock, OperatingHour, ParticipantUser, Space, SpaceCategory, UserLevel } from "../types/reservation";
+import type {
+  Admin,
+  AdminApplication,
+  AdminBlock,
+  MeetingStatus,
+  OperatingHour,
+  ParticipantUser,
+  SessionStatus,
+  Space,
+  SpaceCategory,
+  UserLevel,
+} from "../types/reservation";
 
 export type SpaceRow = {
   readonly space_id: string;
@@ -14,6 +25,8 @@ export type SpaceRow = {
   readonly parent_space_name: string | null;
   readonly admin_memo: string | null;
   readonly sort_order: number | null;
+  readonly created_at?: string | null;
+  readonly updated_at?: string | null;
 };
 
 export type OperatingHourRow = {
@@ -28,6 +41,7 @@ export type OperatingHourRow = {
 export type AdminBlockRow = {
   readonly block_id: string;
   readonly space_id: string;
+  readonly space_name?: string | null;
   readonly date: string;
   readonly start_time: string;
   readonly end_time: string;
@@ -48,6 +62,9 @@ export type ParticipantVerificationRow = {
   readonly has_admin_approval: boolean | null;
   readonly max_blocks: number | null;
   readonly memo: string | null;
+  readonly is_active?: boolean | null;
+  readonly created_at?: string | null;
+  readonly updated_at?: string | null;
 };
 
 export type AdminVerificationRow = {
@@ -55,6 +72,45 @@ export type AdminVerificationRow = {
   readonly name: string;
   readonly phone_last4: string | null;
   readonly role: string | null;
+};
+
+export type AdminParticipantRow = {
+  readonly participant_id: string;
+  readonly name: string;
+  readonly phone: string | null;
+  readonly phone_last4: string | null;
+  readonly level: number | null;
+  readonly has_plan: boolean | null;
+  readonly has_budget: boolean | null;
+  readonly has_promotion: boolean | null;
+  readonly has_admin_approval: boolean | null;
+  readonly max_blocks: number | null;
+  readonly memo: string | null;
+  readonly is_active: boolean | null;
+  readonly created_at: string | null;
+  readonly updated_at: string | null;
+};
+
+export type AdminApplicationRow = {
+  readonly meeting_id: string;
+  readonly session_id: string;
+  readonly applicant_participant_id: string;
+  readonly applicant_name: string;
+  readonly phone_last4: string | null;
+  readonly level: number | null;
+  readonly meeting_name: string;
+  readonly purpose: string | null;
+  readonly meeting_status: string | null;
+  readonly session_index: number | null;
+  readonly space_id: string;
+  readonly space_name: string;
+  readonly date: string;
+  readonly start_time: string;
+  readonly end_time: string;
+  readonly block_count: number | null;
+  readonly session_status: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
 };
 
 export const mapSpaceRows = (
@@ -82,6 +138,8 @@ export const mapSpaceRows = (
     parentSpaceName: row.parent_space_name ?? undefined,
     adminMemo: row.admin_memo ?? undefined,
     sortOrder: row.sort_order ?? 0,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
   }));
 };
 
@@ -89,6 +147,7 @@ export const mapAdminBlockRows = (rows: readonly AdminBlockRow[]): readonly Admi
   rows.map((row) => ({
     id: row.block_id,
     spaceId: row.space_id,
+    spaceName: row.space_name ?? undefined,
     date: row.date,
     startTime: row.start_time,
     endTime: row.end_time,
@@ -96,6 +155,47 @@ export const mapAdminBlockRows = (rows: readonly AdminBlockRow[]): readonly Admi
     createdBy: row.created_by ?? "관리자",
     isActive: row.is_active,
     createdAt: row.created_at,
+  }));
+
+export const mapAdminParticipantRows = (rows: readonly AdminParticipantRow[]): readonly ParticipantUser[] =>
+  rows.map((row) => ({
+    id: row.participant_id,
+    name: row.name,
+    phone: row.phone ?? "",
+    phoneLast4: row.phone_last4 ?? getPhoneLast4(row.phone ?? ""),
+    level: mapUserLevel(row.level),
+    hasPlan: row.has_plan ?? false,
+    hasBudget: row.has_budget ?? false,
+    hasPromotion: row.has_promotion ?? false,
+    hasAdminApproval: row.has_admin_approval ?? false,
+    maxBlocks: row.max_blocks ?? 0,
+    memo: row.memo ?? "",
+    isActive: row.is_active ?? false,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  }));
+
+export const mapAdminApplicationRows = (rows: readonly AdminApplicationRow[]): readonly AdminApplication[] =>
+  rows.map((row) => ({
+    meetingId: row.meeting_id,
+    sessionId: row.session_id,
+    applicantParticipantId: row.applicant_participant_id,
+    applicantName: row.applicant_name,
+    phoneLast4: row.phone_last4 ?? "",
+    level: mapUserLevel(row.level),
+    meetingName: row.meeting_name,
+    purpose: row.purpose ?? "",
+    meetingStatus: mapMeetingStatus(row.meeting_status),
+    sessionIndex: row.session_index ?? 1,
+    spaceId: row.space_id,
+    spaceName: row.space_name,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    blockCount: row.block_count ?? 0,
+    sessionStatus: mapSessionStatus(row.session_status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   }));
 
 export const mapParticipantVerificationRow = (row: ParticipantVerificationRow, submittedPhone: string): ParticipantUser => ({
@@ -110,7 +210,9 @@ export const mapParticipantVerificationRow = (row: ParticipantVerificationRow, s
   hasAdminApproval: row.has_admin_approval ?? false,
   maxBlocks: row.max_blocks ?? 0,
   memo: row.memo ?? "",
-  isActive: true,
+  isActive: row.is_active ?? true,
+  createdAt: row.created_at ?? undefined,
+  updatedAt: row.updated_at ?? undefined,
 });
 
 export const mapAdminVerificationRow = (row: AdminVerificationRow, submittedPhone: string): Admin => ({
@@ -153,3 +255,17 @@ const mapSpaceCategory = (category: string): SpaceCategory =>
 const mapUserLevel = (level: number | null): UserLevel => level === 1 ? 1 : 2;
 
 const getPhoneLast4 = (phone: string): string => phone.replace(/\D/g, "").slice(-4);
+
+const mapMeetingStatus = (status: string | null): MeetingStatus => {
+  if (status === "submitted" || status === "approved" || status === "rejected") {
+    return status;
+  }
+  return "draft";
+};
+
+const mapSessionStatus = (status: string | null): SessionStatus => {
+  if (status === "confirmed" || status === "cancelled") {
+    return status;
+  }
+  return "requested";
+};

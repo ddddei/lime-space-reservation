@@ -9,7 +9,7 @@ type SpaceLandingProps = {
 
 export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLandingProps) {
   const activeSpaces = spaces
-    .filter((space) => space.isActive && space.isPublicVisible)
+    .filter((space) => space.category === "lifestyle" && space.isActive && space.isPublicVisible)
     .sort((first, second) => {
       if (first.category !== second.category) {
         return first.category === "lifestyle" ? -1 : 1;
