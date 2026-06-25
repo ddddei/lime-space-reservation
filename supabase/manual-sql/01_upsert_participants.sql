@@ -1,7 +1,6 @@
--- Production roster upsert from /Users/hanpilgoo/Downloads/피스메이커 레벨.xlsx
--- Source counts: participants 26 (Level 2: 14, Level 1: 12), admins 10.
--- This script does not touch spaces, operating_hours, space_images, or admin_blocks.
--- Secrets are not embedded. Execute with Supabase SQL Editor or `supabase db query --linked --file ...`.
+-- Upsert production participants from 피스메이커 레벨.xlsx.
+-- Expected active participants: 26 / Level 2: 14 / Level 1: 12.
+-- Keeps existing participant_id when name + normalized phone already match.
 
 begin;
 
@@ -56,14 +55,12 @@ with source_participants(participant_id, name, phone, phone_digits, phone_last4,
     has_plan, has_budget, has_promotion, has_admin_approval,
     max_blocks, memo, is_active, created_at, updated_at
   )
-  select
-    s.participant_id, s.name, s.phone, s.phone_last4, s.level,
-    s.has_plan, s.has_budget, s.has_promotion, s.has_admin_approval,
-    s.max_blocks, s.memo, true, now(), now()
+  select s.participant_id, s.name, s.phone, s.phone_last4, s.level,
+         s.has_plan, s.has_budget, s.has_promotion, s.has_admin_approval,
+         s.max_blocks, s.memo, true, now(), now()
   from source_participants s
   where not exists (
-    select 1
-    from public.participants p
+    select 1 from public.participants p
     where btrim(p.name) = btrim(s.name)
       and regexp_replace(p.phone, '\D', '', 'g') = s.phone_digits
   )
@@ -72,68 +69,17 @@ with source_participants(participant_id, name, phone, phone_digits, phone_last4,
   update public.participants p
   set is_active = false,
       updated_at = now(),
-      memo = case
-        when p.memo = '' then '피스메이커 레벨.xlsx 최신 명단 제외로 비활성화'
-        else p.memo || ' / 피스메이커 레벨.xlsx 최신 명단 제외로 비활성화'
-      end
+      memo = case when p.memo = '' then '피스메이커 레벨.xlsx 최신 명단 제외로 비활성화'
+                  else p.memo || ' / 피스메이커 레벨.xlsx 최신 명단 제외로 비활성화' end
   where not exists (
-    select 1
-    from source_participants s
+    select 1 from source_participants s
     where btrim(p.name) = btrim(s.name)
       and regexp_replace(p.phone, '\D', '', 'g') = s.phone_digits
   )
   returning participant_id
-), source_admins(admin_id, name, phone, phone_digits, phone_last4, role, is_active) as (
-  values
-    ('admin-01023118789', '정재원', '010-2311-8789', '01023118789', '8789', 'manager', true),
-    ('admin-01032759682', '허정민', '010-3275-9682', '01032759682', '9682', 'manager', true),
-    ('admin-01049084901', '박재은', '010-4908-4901', '01049084901', '4901', 'manager', true),
-    ('admin-01045484592', '황제훈', '010-4548-4592', '01045484592', '4592', 'manager', true),
-    ('admin-01044309870', '강동리', '010-4430-9870', '01044309870', '9870', 'manager', true),
-    ('admin-01033808374', '한필구', '010-3380-8374', '01033808374', '8374', 'system-admin', true),
-    ('admin-01077146229', '최윤조', '010-7714-6229', '01077146229', '6229', 'manager', true),
-    ('admin-01095667703', '정재원', '010-9566-7703', '01095667703', '7703', 'manager', true),
-    ('admin-0220668134-youthcenter', '청년동', '02-2066-8134', '0220668134', '8134', 'manager', true),
-    ('admin-0220668134-admin', 'admin', '02-2066-8134', '0220668134', '8134', 'system-admin', true)
-), updated_admins as (
-  update public.admins a
-  set phone = s.phone,
-      phone_last4 = s.phone_last4,
-      role = s.role,
-      is_active = s.is_active,
-      updated_at = now()
-  from source_admins s
-  where btrim(a.name) = btrim(s.name)
-    and regexp_replace(a.phone, '\D', '', 'g') = s.phone_digits
-  returning a.admin_id
-), inserted_admins as (
-  insert into public.admins (admin_id, name, phone, phone_last4, role, is_active, created_at, updated_at)
-  select s.admin_id, s.name, s.phone, s.phone_last4, s.role, s.is_active, now(), now()
-  from source_admins s
-  where not exists (
-    select 1
-    from public.admins a
-    where btrim(a.name) = btrim(s.name)
-      and regexp_replace(a.phone, '\D', '', 'g') = s.phone_digits
-  )
-  returning admin_id
-), deactivated_admins as (
-  update public.admins a
-  set is_active = false,
-      updated_at = now()
-  where not exists (
-    select 1
-    from source_admins s
-    where btrim(a.name) = btrim(s.name)
-      and regexp_replace(a.phone, '\D', '', 'g') = s.phone_digits
-  )
-  returning admin_id
 )
 select 'participants_updated' as metric, count(*)::integer as value from updated
 union all select 'participants_inserted', count(*)::integer from inserted
-union all select 'participants_deactivated', count(*)::integer from deactivated
-union all select 'admins_updated', count(*)::integer from updated_admins
-union all select 'admins_inserted', count(*)::integer from inserted_admins
-union all select 'admins_deactivated', count(*)::integer from deactivated_admins;
+union all select 'participants_deactivated', count(*)::integer from deactivated;
 
 commit;

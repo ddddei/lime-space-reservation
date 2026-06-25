@@ -1,6 +1,4 @@
--- Production readiness count and login verification checks.
--- Expected after roster + cleanup:
--- active participants = 26, level2 = 14, level1 = 12, active admins = 10, meetings = 0, sessions = 0.
+-- Verify production-ready DB counts and critical login RPCs.
 
 select 'active_participants' as metric, count(*)::integer as value from public.participants where is_active
 union all select 'level_2_active_participants', count(*)::integer from public.participants where is_active and level = 2
