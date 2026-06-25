@@ -1,122 +1,85 @@
-# Lime Space Reservation
+# Lime Space Reservation 운영 문서
 
-라임 제휴공간 예약 운영 웹앱입니다. 승인된 피스메이커/호스트가 제휴공간을 예약하고, 관리자는 신청 목록과 참여자 승인 상태를 확인합니다.
+라임 제휴공간 예약 운영 웹앱입니다. 참가자는 이름과 전화번호로 본인 확인을 한 뒤 공간을 예약하고, 운영자는 관리자 화면에서 참가자 승인 상태, 신청 목록, 차단 일정, 공간 노출 상태를 관리합니다.
 
-## 기술 스택
+이 저장소의 문서는 개발자가 아니라 실제 운영자가 빠르게 확인할 수 있도록 정리되어 있습니다.
 
-- React 19
-- TypeScript
-- Vite
-- Tailwind CSS v4
-- Supabase Postgres / RPC
-- lucide-react
-- Playwright 기반 운영 QA
+## 먼저 볼 문서
 
-## 실행 방법
+- [QUICK_START.md](./QUICK_START.md): 새 운영자를 위한 5분 운영 시작 매뉴얼
+- [OPERATION_CHECKLIST.md](./OPERATION_CHECKLIST.md): 오픈 당일 체크리스트
+- [USER_GUIDE.md](./USER_GUIDE.md): 참가자에게 안내할 예약 방법
+- [ADMIN_GUIDE.md](./ADMIN_GUIDE.md): 관리자 화면 사용 매뉴얼
+- [FAQ.md](./FAQ.md): 참가자/운영자 자주 묻는 질문
+- [TROUBLESHOOTING.md](./TROUBLESHOOTING.md): 문제가 생겼을 때 확인 순서
+- [QA_CHECKLIST.md](./QA_CHECKLIST.md): 배포 전 기능 확인 목록
+
+## 운영 시작 전 핵심 확인
+
+- 관리자 로그인이 되는지 확인합니다.
+- 참가자 로그인이 되는지 확인합니다.
+- 신청 목록이 비어 있어야 하는 운영 시작일에는 `meetings = 0`, `sessions = 0` 상태를 확인합니다.
+- 차단 일정이 필요한 공간과 시간이 미리 등록되어 있는지 확인합니다.
+- 참가자 화면에 노출할 공간만 보이는지 확인합니다.
+- Discord 문의 채널을 운영자가 확인할 수 있는 상태인지 확인합니다.
+
+## 참가자 기본 흐름
+
+1. 참가자가 이름과 전화번호를 입력하고 `참여자 확인`을 누릅니다.
+2. 승인 완료 상태인 참가자가 공간을 둘러봅니다.
+3. 공간, 날짜, 시간, 모임명을 입력하고 `모임공간 신청하기`를 누릅니다.
+4. 신청 결과는 `내 신청 확인/수정`에서 확인합니다.
+5. 필요하면 참가자가 직접 `신청 취소`를 할 수 있습니다.
+
+자세한 안내는 [USER_GUIDE.md](./USER_GUIDE.md)를 참가자에게 공유하세요.
+
+## 운영자 기본 흐름
+
+1. 우측 상단 `관리자 모드`에서 로그인합니다.
+2. `참여자 체크리스트`에서 예약 승인 상태를 확인합니다.
+3. `전체 신청 목록`에서 들어온 신청과 취소 상태를 확인합니다.
+4. 예약을 막아야 하는 시간은 `차단 일정`에 저장합니다.
+5. 참가자에게 보이면 안 되는 공간은 `공간 관리`에서 `사용자 숨김`으로 전환합니다.
+6. 운영 종료 후 예약 데이터 정리가 필요한지 확인합니다.
+
+자세한 운영 방법은 [ADMIN_GUIDE.md](./ADMIN_GUIDE.md)를 기준으로 진행하세요.
+
+## 운영 중 주의사항
+
+- 등록된 참가자만 로그인할 수 있습니다.
+- 참가자는 관리자 승인 완료 후 예약할 수 있습니다.
+- `사용자 숨김`은 참가자 화면에서만 숨기는 기능입니다. 공간 데이터가 삭제되는 것은 아닙니다.
+- `비활성 처리`는 운영에서 제외하는 설정입니다. 기존 신청 영향이 없는지 확인한 뒤 사용하세요.
+- 신청 취소 후 참가자 화면에 바로 보이지 않으면 `내 신청 확인/수정`에서 `새로고침`을 안내하세요.
+- 취소된 신청은 기본 목록에서 숨겨지고, `취소된 신청 보기`를 켜면 확인할 수 있습니다.
+
+## 운영 종료 후 확인
+
+운영 전 테스트 신청이나 운영 종료 후 정리가 필요하면 `meetings`, `sessions`만 초기화 대상입니다.
+
+- 유지 대상: 참가자, 관리자, 공간, 공간 사진, 운영시간, 차단 일정
+- 초기화 대상: 예약 모임 데이터(`meetings`), 예약 시간 데이터(`sessions`)
+- 수동 정리 파일 위치: [supabase/manual-sql](./supabase/manual-sql)
+
+운영자가 SQL 실행에 익숙하지 않다면 직접 실행하지 말고 개발 담당자에게 요청하세요.
+
+## 개발자 참고
+
+운영 문서에는 기술 용어를 최소화했지만, 개발/배포 담당자는 아래 내용을 참고합니다.
 
 ```bash
 npm install
 npm run dev
-```
-
-운영 빌드 미리보기:
-
-```bash
-npm run build
-npm run preview
-```
-
-## 검증 명령
-
-배포 전 반드시 실행합니다.
-
-```bash
 npm run build
 npm run lint
 git diff --check
 ```
 
-## 환경 변수
-
-`.env.local`에 아래 값을 설정합니다. service role key, DB password, secret key는 프론트엔드 코드에 넣지 않습니다.
+환경 변수는 `.env.local`에 설정합니다.
 
 ```bash
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 ```
 
-## Supabase
-
-프론트엔드는 anon key로 RPC를 호출합니다. 운영 SQL은 `supabase/manual-sql`에 분리되어 있습니다.
-
-실행 순서:
-
-1. `01_upsert_participants.sql`
-2. `02_upsert_admins.sql`
-3. `03_clear_test_reservations.sql`
-4. `04_verify_counts.sql`
-
-비상 시 예약 이력만 초기화하려면 `05_emergency_reset.sql`을 사용합니다.
-
-## 폴더 구조
-
-```text
-src/components        화면 컴포넌트
-src/data              로컬 mock 데이터와 정책 상수
-src/lib               Supabase API, 예약 규칙, 표시 변환
-src/types             예약 도메인 타입
-supabase/migrations   RPC 정의 및 보정 SQL
-supabase/manual-sql   운영 수동 SQL
-```
-
-## 주요 기능
-
-- 참여자 로그인
-- 공간 카드 탐색
-- 예약 신청 모달
-- 사진 팝업
-- 내 신청 확인/수정
-- 참가자 신청 취소
-- 취소된 신청 보기
-- Discord 문의 링크
-
-## 관리자 기능
-
-- 관리자 로그인
-- 참여자 체크리스트 조회
-- 예약 승인 상태 변경
-- 전체 신청 목록 조회/새로고침
-- 관리자 신청 취소
-- 관리자 차단 일정 저장/수정/해제
-- 운영 상태 요약
-- 공간 활성/비활성 처리
-- 공간 사용자 노출/숨김 처리
-- 공간 설명, 관리자 메모, 정원, 특징 태그 수정
-
-## 예약 구조
-
-- 참여자별 `level`에 따라 총 신청 가능 시간이 다릅니다.
-- Level 1: 16 blocks, 8시간
-- Level 2: 48 blocks, 24시간
-- 1 block은 30분입니다.
-- 운영시간, 기존 예약, 관리자 차단 일정, 일일 최대 예약 시간을 검증합니다.
-
-## 운영 시 주의사항
-
-- 운영 오픈 전 `meetings = 0`, `sessions = 0` 상태를 확인합니다.
-- `participants`, `admins`, `spaces`, `space_images`, `operating_hours`, `admin_blocks`는 운영 master 데이터입니다.
-- 테스트 신청은 QA 후 반드시 `03_clear_test_reservations.sql`로 정리합니다.
-- `meetings/sessions` 초기화는 관리자 화면 버튼으로 제공하지 않으며 SQL로만 진행합니다.
-- 관리자 로그인은 브라우저 탭의 `sessionStorage`에만 유지됩니다. 운영 중 새로고침 후에도 관리자 화면이 유지되며, 브라우저 탭을 닫거나 로그아웃하면 다시 로그인해야 합니다.
-- Supabase CLI의 `db query --linked`는 병렬 실행하지 않습니다. temp role 초기화가 충돌할 수 있으므로 SQL은 순차 실행합니다.
-- 배포 직전 실제 URL에서 김나영 참가자 로그인과 한필구 관리자 로그인을 한 번 더 확인합니다.
-
-## 배포
-
-정적 Vite 앱으로 배포합니다.
-
-```bash
-npm run build
-```
-
-`dist` 산출물을 호스팅 서비스에 배포하고, 운영 환경 변수 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`를 설정합니다.
+정적 Vite 앱으로 배포하며, 운영 환경에는 위 환경 변수가 필요합니다. 비밀키, service role key, DB password는 프론트엔드 코드나 문서 공유본에 넣지 않습니다.
