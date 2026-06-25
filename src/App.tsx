@@ -16,10 +16,13 @@ import {
 import {
   canUseMockFallback,
   cancelReservationSession,
+  deactivateAdminBlock,
   fetchAdminReadModel,
   fetchParticipantReservationReadModel,
   fetchReservationReadModel,
+  saveAdminBlock,
   updateParticipantReservationApproval,
+  type AdminBlockMutationInput,
 } from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
@@ -298,6 +301,45 @@ export function App() {
     return { status: "ok" };
   };
 
+  const handleSaveAdminBlock = async (input: AdminBlockMutationInput): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      const block = buildMockAdminBlock(input, adminSpaces);
+      setAdminBlocks((current) => mergeAdminBlock(current, block));
+      setPublicAdminBlocks((current) => mergeAdminBlock(current, block));
+      return { status: "ok" };
+    }
+    if (authenticatedAdmin === undefined || authenticatedAdmin.phone.trim().length === 0) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await saveAdminBlock({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, input);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    setAdminBlocks((current) => mergeAdminBlock(current, result.block));
+    setPublicAdminBlocks((current) => mergeAdminBlock(current, result.block));
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
+  const handleDeactivateAdminBlock = async (block: AdminBlock): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      setAdminBlocks((current) => current.filter((item) => item.id !== block.id));
+      setPublicAdminBlocks((current) => current.filter((item) => item.id !== block.id));
+      return { status: "ok" };
+    }
+    if (authenticatedAdmin === undefined || authenticatedAdmin.phone.trim().length === 0) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await deactivateAdminBlock({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, block.id);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    setAdminBlocks((current) => current.filter((item) => item.id !== block.id));
+    setPublicAdminBlocks((current) => current.filter((item) => item.id !== block.id));
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
   const effectiveSessions = useMemo(
     () => allowMockFallback ? sessions : mergeSessions(publicActiveSessions, sessions),
@@ -436,7 +478,9 @@ export function App() {
                 void refreshAdminReadModel();
               }}
               onCancelSession={handleAdminCancelSession}
-              onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
+              canManageAdminBlocks={authenticatedAdmin.phone.trim().length > 0}
+              onSaveBlock={handleSaveAdminBlock}
+              onDeactivateBlock={handleDeactivateAdminBlock}
             />
           </div>
         )}
@@ -526,6 +570,41 @@ const mergeSessions = (
   return [...sessionsById.values()].sort(compareSessions);
 };
 
+const mergeAdminBlock = (
+  current: readonly AdminBlock[],
+  block: AdminBlock,
+): readonly AdminBlock[] => {
+  const blocksById = new Map<string, AdminBlock>();
+  for (const item of current) {
+    blocksById.set(item.id, item);
+  }
+  if (block.isActive) {
+    blocksById.set(block.id, block);
+  } else {
+    blocksById.delete(block.id);
+  }
+  return [...blocksById.values()].sort(compareAdminBlocks);
+};
+
+const buildMockAdminBlock = (
+  input: AdminBlockMutationInput,
+  spaces: readonly Space[],
+): AdminBlock => {
+  const space = spaces.find((item) => item.id === input.spaceId);
+  return {
+    id: input.id ?? `block-${Date.now()}`,
+    spaceId: input.spaceId,
+    spaceName: space?.name,
+    date: input.date,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    reason: input.reason,
+    createdBy: "관리자",
+    isActive: true,
+    createdAt: new Date().toISOString(),
+  };
+};
+
 const compareMeetings = (first: Meeting, second: Meeting): number =>
   second.updatedAt.localeCompare(first.updatedAt);
 
@@ -537,6 +616,13 @@ const compareSessions = (first: ReservationSession, second: ReservationSession):
     return first.startTime.localeCompare(second.startTime);
   }
   return first.sessionIndex - second.sessionIndex;
+};
+
+const compareAdminBlocks = (first: AdminBlock, second: AdminBlock): number => {
+  if (first.date !== second.date) {
+    return second.date.localeCompare(first.date);
+  }
+  return second.startTime.localeCompare(first.startTime);
 };
 
 const readStoredParticipantUser = (): ParticipantUser | undefined => {

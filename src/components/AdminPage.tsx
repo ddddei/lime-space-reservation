@@ -1,4 +1,4 @@
-import { AdminBlockForm } from "./AdminBlockForm";
+import { AdminBlockForm, type AdminBlockFormInput } from "./AdminBlockForm";
 import { AdminReservationTable } from "./AdminReservationTable";
 import { AdminUserChecklist } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
@@ -18,7 +18,9 @@ type AdminPageProps = {
   readonly onAddSpace: (space: Space) => void;
   readonly onRefreshApplications: () => void;
   readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
-  readonly onAddBlock: (block: AdminBlock) => void;
+  readonly canManageAdminBlocks: boolean;
+  readonly onSaveBlock: (block: AdminBlockFormInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly onDeactivateBlock: (block: AdminBlock) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
 };
 
 export function AdminPage(props: AdminPageProps) {
@@ -39,7 +41,13 @@ export function AdminPage(props: AdminPageProps) {
         onRefresh={props.onRefreshApplications}
         onCancelSession={props.onCancelSession}
       />
-      <AdminBlockForm spaces={props.spaces} adminBlocks={props.adminBlocks} readOnly={props.readOnly} onAddBlock={props.onAddBlock} />
+      <AdminBlockForm
+        spaces={props.spaces}
+        adminBlocks={props.adminBlocks}
+        canManage={props.canManageAdminBlocks}
+        onSaveBlock={props.onSaveBlock}
+        onDeactivateBlock={props.onDeactivateBlock}
+      />
       <SpaceAdminEditor spaces={props.spaces} readOnly={props.readOnly} onUpdateSpace={props.onUpdateSpace} onAddSpace={props.onAddSpace} />
     </div>
   );

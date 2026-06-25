@@ -65,6 +65,26 @@ export type AdminBlockRow = {
   readonly created_at: string;
 };
 
+export type AdminBlockInsert = {
+  readonly block_id: string;
+  readonly space_id: string;
+  readonly date: string;
+  readonly start_time: string;
+  readonly end_time: string;
+  readonly reason: string;
+  readonly created_by: string;
+  readonly is_active: boolean;
+};
+
+export type AdminBlockUpdate = {
+  readonly space_id?: string;
+  readonly date?: string;
+  readonly start_time?: string;
+  readonly end_time?: string;
+  readonly reason?: string;
+  readonly is_active?: boolean;
+};
+
 export type ParticipantVerificationRow = {
   readonly participant_id: string;
   readonly name: string;
@@ -380,6 +400,15 @@ export const firstAdminVerificationRow = (
 export const firstAdminParticipantRow = (
   data: AdminParticipantRow | AdminParticipantRow[] | null,
 ): AdminParticipantRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
+export const firstAdminBlockRow = (
+  data: AdminBlockRow | AdminBlockRow[] | null,
+): AdminBlockRow | undefined => {
   if (Array.isArray(data)) {
     return data[0];
   }

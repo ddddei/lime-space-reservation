@@ -1,7 +1,9 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   AdminApplicationRow,
+  AdminBlockInsert,
   AdminBlockRow,
+  AdminBlockUpdate,
   AdminParticipantRow,
   AdminVerificationRow,
   CancelReservationRow,
@@ -37,8 +39,8 @@ type ReservationDatabase = {
       };
       readonly admin_blocks: {
         readonly Row: AdminBlockRow;
-        readonly Insert: never;
-        readonly Update: never;
+        readonly Insert: AdminBlockInsert;
+        readonly Update: AdminBlockUpdate;
         readonly Relationships: [];
       };
       readonly meetings: {
@@ -110,6 +112,27 @@ type ReservationDatabase = {
           readonly input_admin_phone: string;
         };
         readonly Returns: AdminBlockRow[];
+      };
+      readonly upsert_admin_block: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_block_id: string | null;
+          readonly input_space_id: string;
+          readonly input_date: string;
+          readonly input_start_time: string;
+          readonly input_end_time: string;
+          readonly input_reason: string;
+        };
+        readonly Returns: AdminBlockRow[] | null;
+      };
+      readonly deactivate_admin_block: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_block_id: string;
+        };
+        readonly Returns: AdminBlockRow[] | null;
       };
       readonly get_public_active_sessions: {
         readonly Args: Record<string, never>;
