@@ -107,7 +107,7 @@ export function AdminReservationTable({
           <p className="mt-1">{cancelSuccess}</p>
         </div>
       )}
-      <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_150px]">
+      <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr_1fr_1fr_150px]">
         <input
           value={applicantFilter}
           onChange={(event) => {
@@ -162,7 +162,7 @@ export function AdminReservationTable({
         </select>
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="min-w-[900px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[720px] w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-[#DDE8D6] text-xs text-[#5B6856]">
               <th className="py-2 pr-3">상태</th>

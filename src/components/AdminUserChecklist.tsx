@@ -53,7 +53,7 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
         )}
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[680px] w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-[#DDE8D6] text-xs text-[#5B6856]">
               <th className="py-2 pr-3">참여자</th>

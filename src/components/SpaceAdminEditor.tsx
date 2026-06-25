@@ -51,7 +51,7 @@ export function SpaceAdminEditor({ spaces, onSaveSpace }: SpaceAdminEditorProps)
         <div>
           <h2 className="text-lg font-bold text-[#172014]">공간 정보 관리</h2>
           <p className="mt-1 text-xs font-semibold text-[#819078]">
-            공간 추가와 이미지 관리는 운영 SQL로 처리하고, 현장에서는 노출/숨김과 기본 정보만 수정합니다.
+            현장에서는 사용자 노출 여부와 기본 정보만 수정합니다. 공간 추가와 이미지 변경은 담당자 확인 후 진행하세요.
           </p>
         </div>
         <span className="rounded-full bg-[#F1F8EC] px-3 py-1 text-xs font-extrabold text-[#5F9820]">
@@ -59,7 +59,7 @@ export function SpaceAdminEditor({ spaces, onSaveSpace }: SpaceAdminEditorProps)
         </span>
       </div>
       <div className="mt-3 rounded-lg bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
-        meetings/sessions 초기화는 버튼으로 제공하지 않습니다. 운영 초기화가 필요하면 `supabase/manual-sql`의 SQL만 사용하세요.
+        신청 내역 초기화는 이 화면에서 제공하지 않습니다. 운영 초기화가 필요하면 담당자 확인 후 별도 절차로 진행하세요.
       </div>
       <div className="mt-3 grid gap-3">
         {sortedSpaces.map((space) => {

@@ -37,7 +37,7 @@ export function AdminSummary({ admin, users, applications, adminBlocks, onLogout
         <SummaryMetric label="로그인 상태" value={admin.phone.trim().length > 0 ? "유지됨" : "확인 필요"} />
       </div>
       <p className="mt-3 rounded-lg bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
-        meetings/sessions 초기화는 관리자 화면에서 실행하지 않습니다. 필요 시 `supabase/manual-sql`의 SQL을 사용하세요.
+        신청 내역 초기화는 관리자 화면에서 제공하지 않습니다. 운영 초기화가 필요하면 담당자 확인 후 별도 절차로 진행하세요.
       </p>
     </section>
   );
