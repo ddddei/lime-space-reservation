@@ -17,6 +17,7 @@ import type {
   ReservationSession,
   SaveValidationResult,
   Space,
+  SpaceImage,
 } from "../types/reservation";
 import type { SelectedTimeRange } from "../lib/timeSelection";
 
@@ -154,6 +155,7 @@ function ReservationDialog(props: UserReservationFlowProps & { readonly onClose:
         </div>
         <div className="grid gap-5 overflow-y-auto p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid gap-5">
+            <SpaceImageSlider key={props.selectedSpace.id} space={props.selectedSpace} />
             <SelectedSpaceSummary space={props.selectedSpace} />
             <CalendarView
               selectedDate={props.selectedDate}
@@ -193,6 +195,113 @@ function ReservationDialog(props: UserReservationFlowProps & { readonly onClose:
       </div>
     </div>
   );
+}
+
+function SpaceImageSlider({ space }: { readonly space: Space }) {
+  const images = getDisplayImages(space);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [failedImageIds, setFailedImageIds] = useState<readonly string[]>([]);
+  const currentImage = images[currentIndex];
+  const showImage = currentImage !== undefined
+    && currentImage.imageUrl.trim().length > 0
+    && !failedImageIds.includes(currentImage.id);
+
+  const moveSlide = (direction: -1 | 1): void => {
+    setCurrentIndex((current) => (current + direction + images.length) % images.length);
+  };
+
+  return (
+    <section className="overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
+      <div className="relative h-64 bg-[#070A07] md:h-80">
+        {showImage ? (
+          <img
+            src={currentImage.imageUrl}
+            alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
+            className="h-full w-full object-cover"
+            width="760"
+            height="320"
+            onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
+          />
+        ) : (
+          <SpaceImagePlaceholder name={space.name} />
+        )}
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-3 bg-gradient-to-t from-[#070A07]/90 to-transparent p-4">
+          <div>
+            <p className="text-xs font-black text-[#A6F15B]">공간 사진</p>
+            <p className="mt-1 text-sm font-bold text-[#F5FAF2]">
+              {images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "이미지 준비 중"}
+            </p>
+          </div>
+          {images.length > 1 && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => moveSlide(-1)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-[#F5FAF2]/35 bg-[#070A07]/55 text-lg font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                aria-label="이전 사진"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => moveSlide(1)}
+                className="grid h-9 w-9 place-items-center rounded-full border border-[#F5FAF2]/35 bg-[#070A07]/55 text-lg font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                aria-label="다음 사진"
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+      {images.length > 1 && (
+        <div className="flex justify-center gap-2 p-3">
+          {images.map((image, index) => (
+            <button
+              key={image.id}
+              type="button"
+              onClick={() => setCurrentIndex(index)}
+              className={`h-2.5 w-2.5 rounded-full transition ${
+                index === currentIndex ? "bg-[#5F9820]" : "bg-[#DDE8D6] hover:bg-[#77B82A]"
+              }`}
+              aria-label={`${index + 1}번 사진 보기`}
+              aria-current={index === currentIndex ? "true" : undefined}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function SpaceImagePlaceholder({ name }: { readonly name: string }) {
+  return (
+    <div className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#070A07,#1A2419_52%,#2C3A2B)] px-5 text-center">
+      <div>
+        <p className="text-xs font-black text-[#A6F15B]">LIME SPACE</p>
+        <p className="mt-2 text-lg font-black text-[#F5FAF2]">{name}</p>
+        <p className="mt-1 text-sm font-semibold text-[#B7C6B0]">이미지 준비 중</p>
+      </div>
+    </div>
+  );
+}
+
+function getDisplayImages(space: Space): readonly SpaceImage[] {
+  if (space.images !== undefined && space.images.length > 0) {
+    return space.images;
+  }
+  if (space.imageUrl.trim().length === 0) {
+    return [];
+  }
+  return [{
+    id: `${space.id}-primary-image`,
+    spaceId: space.id,
+    imageUrl: space.imageUrl,
+    altText: `${space.name} 사진`,
+    sortOrder: 0,
+    isPrimary: true,
+    isActive: true,
+  }];
 }
 
 function SelectedSpaceSummary({ space }: { readonly space: Space }) {

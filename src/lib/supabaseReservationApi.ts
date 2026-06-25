@@ -12,6 +12,7 @@ import {
   mapAdminParticipantRows,
   mapAdminVerificationRow,
   mapParticipantVerificationRow,
+  type SpaceImageRow,
   mapSpaceRows,
 } from "./supabaseMappers";
 import type { AdminApplication, AdminBlock, Space, ParticipantUser } from "../types/reservation";
@@ -57,7 +58,7 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
     return { spaces: [], adminBlocks: [] };
   }
 
-  const [operatingHoursResponse, adminBlocksResponse] = await Promise.all([
+  const [operatingHoursResponse, adminBlocksResponse, spaceImagesResponse] = await Promise.all([
     supabaseClient
       .from("operating_hours")
       .select("space_id,day_of_week,open_time,close_time,is_closed")
@@ -69,20 +70,21 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
       .eq("is_active", true)
       .in("space_id", publicSpaceIds)
       .order("date", { ascending: true }),
+    fetchSpaceImageRows(publicSpaceIds),
   ]);
 
   if (operatingHoursResponse.error !== null) {
     warnSupabaseReadError("operating_hours 조회", operatingHoursResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, []), adminBlocks: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows), adminBlocks: [] };
   }
 
   if (adminBlocksResponse.error !== null) {
     warnSupabaseReadError("공개 admin_blocks 조회", adminBlocksResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data), adminBlocks: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows), adminBlocks: [] };
   }
 
   return {
-    spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data),
+    spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows),
     adminBlocks: mapAdminBlockRows(adminBlocksResponse.data),
   };
 };
@@ -125,12 +127,38 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
     return emptyAdminReadModel();
   }
 
+  const adminSpaceRows = spacesResponse.data ?? [];
+  const adminSpaceIds = adminSpaceRows.map((space) => space.space_id);
+  const spaceImagesResponse = await fetchSpaceImageRows(adminSpaceIds);
+
   return {
     participants: mapAdminParticipantRows(participantsResponse.data ?? []),
-    spaces: mapSpaceRows(spacesResponse.data ?? [], []),
+    spaces: mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows),
     applications: mapAdminApplicationRows(applicationsResponse.data ?? []),
     adminBlocks: mapAdminBlockRows(blocksResponse.data ?? []),
   };
+};
+
+export const fetchSpaceImageRows = async (
+  spaceIds: readonly string[],
+): Promise<{ readonly rows: readonly SpaceImageRow[] }> => {
+  if (supabaseClient === undefined || spaceIds.length === 0) {
+    return { rows: [] };
+  }
+
+  const response = await supabaseClient
+    .from("space_images")
+    .select("image_id,space_id,image_url,alt_text,sort_order,is_primary,is_active,created_at")
+    .eq("is_active", true)
+    .in("space_id", spaceIds)
+    .order("sort_order", { ascending: true });
+
+  if (response.error !== null) {
+    warnSupabaseReadError("space_images 조회", response.error);
+    return { rows: [] };
+  }
+
+  return { rows: response.data ?? [] };
 };
 
 export const verifyParticipantLogin = async (

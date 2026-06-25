@@ -10,7 +10,8 @@ type SpaceCardProps = {
 
 export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
   const [failedImageUrl, setFailedImageUrl] = useState<string | undefined>();
-  const hasImage = space.imageUrl.trim().length > 0 && failedImageUrl !== space.imageUrl;
+  const cardImage = getCardImage(space);
+  const hasImage = cardImage.imageUrl.trim().length > 0 && failedImageUrl !== cardImage.imageUrl;
 
   return (
     <button
@@ -23,12 +24,12 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
       <div className="relative">
         {hasImage ? (
           <img
-            src={space.imageUrl}
-            alt={`${space.name} 사진`}
+            src={cardImage.imageUrl}
+            alt={cardImage.altText ?? `${space.name} 사진`}
             className="h-48 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
             width="360"
             height="192"
-            onError={() => setFailedImageUrl(space.imageUrl)}
+            onError={() => setFailedImageUrl(cardImage.imageUrl)}
           />
         ) : (
           <div className="grid h-48 w-full place-items-center bg-[linear-gradient(135deg,#070A07,#1A2419_52%,#2C3A2B)] px-5 text-center">
@@ -65,3 +66,11 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
     </button>
   );
 }
+
+const getCardImage = (space: Space): { readonly imageUrl: string; readonly altText?: string } => {
+  const image = space.images?.find((item) => item.imageUrl.trim().length > 0);
+  return {
+    imageUrl: image?.imageUrl ?? space.imageUrl,
+    altText: image?.altText,
+  };
+};

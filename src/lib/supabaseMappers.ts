@@ -8,6 +8,7 @@ import type {
   SessionStatus,
   Space,
   SpaceCategory,
+  SpaceImage,
   UserLevel,
 } from "../types/reservation";
 
@@ -27,6 +28,17 @@ export type SpaceRow = {
   readonly sort_order: number | null;
   readonly created_at?: string | null;
   readonly updated_at?: string | null;
+};
+
+export type SpaceImageRow = {
+  readonly image_id: string;
+  readonly space_id: string;
+  readonly image_url: string | null;
+  readonly alt_text: string | null;
+  readonly sort_order: number | null;
+  readonly is_primary: boolean | null;
+  readonly is_active: boolean | null;
+  readonly created_at: string | null;
 };
 
 export type OperatingHourRow = {
@@ -116,6 +128,7 @@ export type AdminApplicationRow = {
 export const mapSpaceRows = (
   spaceRows: readonly SpaceRow[],
   operatingHourRows: readonly OperatingHourRow[],
+  spaceImageRows: readonly SpaceImageRow[] = [],
 ): readonly Space[] => {
   const hoursBySpaceId = new Map<string, readonly OperatingHour[]>();
   for (const row of operatingHourRows) {
@@ -123,13 +136,16 @@ export const mapSpaceRows = (
     hoursBySpaceId.set(row.space_id, [...current, mapOperatingHourRow(row)]);
   }
 
+  const imagesBySpaceId = groupSpaceImagesBySpaceId(spaceImageRows);
+
   return spaceRows.map((row) => ({
     id: row.space_id,
     name: row.name,
     category: mapSpaceCategory(row.category),
     capacity: row.capacity,
     description: row.description ?? "",
-    imageUrl: row.image_url ?? "",
+    imageUrl: getPrimarySpaceImageUrl(imagesBySpaceId.get(row.space_id) ?? [], row.image_url ?? ""),
+    images: imagesBySpaceId.get(row.space_id) ?? [],
     features: row.features ?? [],
     operatingHours: [...(hoursBySpaceId.get(row.space_id) ?? [])].sort((first, second) => first.dayOfWeek - second.dayOfWeek),
     isActive: row.is_active,
@@ -142,6 +158,20 @@ export const mapSpaceRows = (
     updatedAt: row.updated_at ?? undefined,
   }));
 };
+
+export const mapSpaceImageRows = (rows: readonly SpaceImageRow[]): readonly SpaceImage[] =>
+  rows
+    .map((row) => ({
+      id: row.image_id,
+      spaceId: row.space_id,
+      imageUrl: row.image_url ?? "",
+      altText: row.alt_text ?? undefined,
+      sortOrder: row.sort_order ?? 0,
+      isPrimary: row.is_primary ?? false,
+      isActive: row.is_active ?? false,
+      createdAt: row.created_at ?? undefined,
+    }))
+    .sort(compareSpaceImages);
 
 export const mapAdminBlockRows = (rows: readonly AdminBlockRow[]): readonly AdminBlock[] =>
   rows.map((row) => ({
@@ -248,6 +278,27 @@ const mapOperatingHourRow = (row: OperatingHourRow): OperatingHour => ({
   closeTime: row.close_time,
   isClosed: row.is_closed,
 });
+
+const groupSpaceImagesBySpaceId = (rows: readonly SpaceImageRow[]): ReadonlyMap<string, readonly SpaceImage[]> => {
+  const groupedImages = new Map<string, readonly SpaceImage[]>();
+  for (const image of mapSpaceImageRows(rows)) {
+    const current = groupedImages.get(image.spaceId) ?? [];
+    groupedImages.set(image.spaceId, [...current, image]);
+  }
+  return groupedImages;
+};
+
+const getPrimarySpaceImageUrl = (images: readonly SpaceImage[], fallbackUrl: string): string => {
+  const primaryImage = [...images].sort(compareSpaceImages).find((image) => image.imageUrl.trim().length > 0);
+  return primaryImage?.imageUrl ?? fallbackUrl;
+};
+
+const compareSpaceImages = (first: SpaceImage, second: SpaceImage): number => {
+  if (first.isPrimary !== second.isPrimary) {
+    return first.isPrimary ? -1 : 1;
+  }
+  return first.sortOrder - second.sortOrder;
+};
 
 const mapSpaceCategory = (category: string): SpaceCategory =>
   category === "youth-building" ? "youth-building" : "lifestyle";
