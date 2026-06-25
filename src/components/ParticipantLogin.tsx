@@ -1,30 +1,25 @@
 import { useState, type FormEvent } from "react";
-import { findParticipantByNameAndPhone } from "../lib/participantAuth";
 import type { ParticipantAuthResult } from "../lib/participantAuth";
+import { verifyParticipantLogin } from "../lib/supabaseReservationApi";
 import type { ParticipantUser } from "../types/reservation";
 
 type ParticipantLoginProps = {
-  readonly users: readonly ParticipantUser[];
   readonly onAuthenticated: (user: ParticipantUser) => void;
 };
 
-export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginProps) {
+export function ParticipantLogin({ onAuthenticated }: ParticipantLoginProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [authResult, setAuthResult] = useState<ParticipantAuthResult | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (name.trim().length === 0 || phone.trim().length === 0) {
       return;
     }
-    submitParticipantCheck({
-      name,
-      phone,
-      users,
-      setAuthResult,
-      onAuthenticated,
-    });
+    setIsSubmitting(true);
+    void submitParticipantCheck({ name, phone, setAuthResult, onAuthenticated }).finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -77,8 +72,9 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
         type="submit"
         className="rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
+        aria-busy={isSubmitting}
       >
-        참여자 확인
+        {isSubmitting ? "확인 중" : "참여자 확인"}
       </button>
     </form>
   );
@@ -87,13 +83,12 @@ export function ParticipantLogin({ users, onAuthenticated }: ParticipantLoginPro
 type SubmitInput = {
   readonly name: string;
   readonly phone: string;
-  readonly users: readonly ParticipantUser[];
   readonly setAuthResult: (result: ParticipantAuthResult) => void;
   readonly onAuthenticated: (user: ParticipantUser) => void;
 };
 
-function submitParticipantCheck(input: SubmitInput): void {
-  const result = findParticipantByNameAndPhone(input.name, input.phone, input.users);
+async function submitParticipantCheck(input: SubmitInput): Promise<void> {
+  const result = await verifyParticipantLogin(input.name, input.phone);
   input.setAuthResult(result);
   if (result.status === "found") {
     input.onAuthenticated(result.user);

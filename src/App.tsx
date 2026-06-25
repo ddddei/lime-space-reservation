@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminLogin } from "./components/AdminLogin";
 import { AdminPage } from "./components/AdminPage";
 import { AdminSummary } from "./components/AdminSummary";
 import { ParticipantLogin } from "./components/ParticipantLogin";
 import { UserReservationFlow } from "./components/UserReservationFlow";
 import { initialAdminBlocks } from "./data/mockAdminBlocks";
-import { initialAdmins } from "./data/mockAdmins";
 import { initialMeetings } from "./data/mockMeetings";
 import { initialSessions } from "./data/mockSessions";
 import { initialSpaces } from "./data/spaces";
@@ -14,6 +13,7 @@ import {
   buildEligibility,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
+import { fetchReservationReadModel } from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
@@ -26,16 +26,29 @@ export function App() {
   const [meetings, setMeetings] = useState<readonly Meeting[]>(initialMeetings);
   const [sessions, setSessions] = useState<readonly ReservationSession[]>(initialSessions);
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(initialAdminBlocks);
-  const [authenticatedUserId, setAuthenticatedUserId] = useState<string | undefined>();
-  const [authenticatedAdminId, setAuthenticatedAdminId] = useState<string | undefined>();
+  const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>();
+  const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>();
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(initialSpaces));
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
 
+  useEffect(() => {
+    let isCurrent = true;
+    void fetchReservationReadModel().then((model) => {
+      if (!isCurrent || model === undefined) {
+        return;
+      }
+      setSpaces(model.spaces);
+      setAdminBlocks(model.adminBlocks);
+      setSelectedSpaceId(getInitialPublicSpaceId(model.spaces));
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, []);
+
   const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces.find((space) => space.isActive && space.isPublicVisible) ?? spaces[0];
-  const authenticatedUser = users.find((user) => user.id === authenticatedUserId);
-  const authenticatedAdmin = initialAdmins.find((admin) => admin.id === authenticatedAdminId);
   const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
@@ -87,7 +100,7 @@ export function App() {
 
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8">
         {mode === "user" && authenticatedUser === undefined ? (
-          <ParticipantLogin users={users} onAuthenticated={(user) => setAuthenticatedUserId(user.id)} />
+          <ParticipantLogin onAuthenticated={setAuthenticatedUser} />
         ) : mode === "user" && eligibility !== undefined && saveValidation !== undefined && authenticatedUser !== undefined ? (
           <UserReservationFlow
             authenticatedUser={authenticatedUser}
@@ -108,13 +121,13 @@ export function App() {
             onSelectDate={setSelectedDate}
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
-            onLogout={() => setAuthenticatedUserId(undefined)}
+            onLogout={() => setAuthenticatedUser(undefined)}
           />
         ) : authenticatedAdmin === undefined ? (
-          <AdminLogin admins={initialAdmins} onAuthenticated={(admin: Admin) => setAuthenticatedAdminId(admin.id)} />
+          <AdminLogin onAuthenticated={setAuthenticatedAdmin} />
         ) : (
           <div className="grid gap-4">
-            <AdminSummary admin={authenticatedAdmin} onLogout={() => setAuthenticatedAdminId(undefined)} />
+            <AdminSummary admin={authenticatedAdmin} onLogout={() => setAuthenticatedAdmin(undefined)} />
             <AdminPage
               users={users}
               meetings={meetings}
