@@ -13,7 +13,12 @@ import {
   buildEligibility,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
-import { canUseMockFallback, fetchAdminReadModel, fetchReservationReadModel } from "./lib/supabaseReservationApi";
+import {
+  canUseMockFallback,
+  fetchAdminReadModel,
+  fetchReservationReadModel,
+  updateParticipantReservationApproval,
+} from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
@@ -70,6 +75,26 @@ export function App() {
       isCurrent = false;
     };
   }, [authenticatedAdmin]);
+
+  const handleToggleApproval = async (user: ParticipantUser, nextValue: boolean): Promise<boolean> => {
+    if (allowMockFallback) {
+      setAdminUsers((current) => current.map((item) => (item.id === user.id ? { ...item, hasAdminApproval: nextValue } : item)));
+      return true;
+    }
+    if (authenticatedAdmin === undefined) {
+      return false;
+    }
+    const result = await updateParticipantReservationApproval(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      user.id,
+      nextValue,
+    );
+    if (result.status !== "ok") {
+      return false;
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+    return true;
+  };
 
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
   const effectiveAdminApplications = allowMockFallback
@@ -171,6 +196,7 @@ export function App() {
               adminBlocks={adminBlocks}
               readOnly={!allowMockFallback}
               onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
+              onToggleApproval={handleToggleApproval}
               onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
               onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}

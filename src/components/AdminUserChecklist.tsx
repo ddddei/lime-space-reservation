@@ -7,13 +7,31 @@ type AdminUserChecklistProps = {
   readonly applications: readonly AdminApplication[];
   readonly readOnly: boolean;
   readonly onUpdateUser: (user: ParticipantUser) => void;
+  readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
 };
 
 const defaultVisibleCount = 6;
 
-export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser }: AdminUserChecklistProps) {
+export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser, onToggleApproval }: AdminUserChecklistProps) {
   const [showAll, setShowAll] = useState(false);
+  const [savingIds, setSavingIds] = useState<readonly string[]>([]);
+  const [errorsById, setErrorsById] = useState<Readonly<Record<string, string | undefined>>>({});
   const visibleUsers = showAll ? users : users.slice(0, defaultVisibleCount);
+
+  const handleToggleApproval = (user: ParticipantUser): void => {
+    const nextValue = !user.hasAdminApproval;
+    setSavingIds((current) => [...current, user.id]);
+    setErrorsById((current) => ({ ...current, [user.id]: undefined }));
+    void onToggleApproval(user, nextValue)
+      .then((success) => {
+        if (!success) {
+          setErrorsById((current) => ({ ...current, [user.id]: "예약 승인 상태를 변경하지 못했습니다." }));
+        }
+      })
+      .finally(() => {
+        setSavingIds((current) => current.filter((id) => id !== user.id));
+      });
+  };
 
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
@@ -21,7 +39,7 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
         <div>
           <h2 className="text-lg font-bold text-[#172014]">참여자 체크리스트</h2>
           <p className="mt-1 text-xs font-semibold text-[#819078]">
-            활성 상태를 기준으로 예약 가능 여부를 판단합니다. 전체 {users.length}명 중 {visibleUsers.length}명 표시
+            예약 승인 여부를 기준으로 예약 신청 가능 여부를 판단합니다. 전체 {users.length}명 중 {visibleUsers.length}명 표시
           </p>
         </div>
         {users.length > defaultVisibleCount && (
@@ -39,7 +57,7 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
           <thead>
             <tr className="border-b border-[#DDE8D6] text-xs text-[#5B6856]">
               <th className="py-2 pr-3">참여자</th>
-              <th className="px-3">활성</th>
+              <th className="px-3">예약 승인</th>
               <th className="px-3">예약 가능</th>
               <th className="px-3">Level</th>
               <th className="px-3">사용 시간</th>
@@ -53,6 +71,8 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
                 .filter((application) => application.applicantParticipantId === user.id && application.sessionStatus !== "cancelled")
                 .reduce((total, application) => total + application.blockCount, 0);
               const canReserve = user.isActive && user.hasAdminApproval && usedBlocks < user.maxBlocks;
+              const isSaving = savingIds.includes(user.id);
+              const errorMessage = errorsById[user.id];
               return (
                 <tr key={user.id} className="border-b border-[#EBF2E7]">
                   <td className="py-2 pr-3 font-bold text-[#172014]">
@@ -63,18 +83,21 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
                     <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
                       <input
                         type="checkbox"
-                        checked={user.isActive}
-                        disabled={readOnly}
-                        onChange={() => onUpdateUser({ ...user, isActive: !user.isActive })}
+                        checked={user.hasAdminApproval}
+                        disabled={isSaving}
+                        onChange={() => handleToggleApproval(user)}
                         className="h-4 w-4 accent-[#77B82A]"
-                        aria-label={`${user.name} 활성`}
+                        aria-label={`${user.name} 예약 승인`}
                       />
-                      {user.isActive ? "활성" : "대기"}
+                      {isSaving ? "저장 중" : user.hasAdminApproval ? "승인 완료" : "승인 대기"}
                     </label>
+                    {errorMessage !== undefined && (
+                      <p className="mt-1 text-xs font-bold text-[#C9443E]">{errorMessage}</p>
+                    )}
                   </td>
                   <td className="px-3">
                     <span className={`rounded-full px-2 py-1 text-xs font-bold ${canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FFF6E3] text-[#B76E00]"}`}>
-                      {canReserve ? "가능" : user.isActive ? "불가" : "대기"}
+                      {canReserve ? "가능" : user.hasAdminApproval ? "불가" : "승인 대기"}
                     </span>
                   </td>
                   <td className="px-3">

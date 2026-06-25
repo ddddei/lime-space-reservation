@@ -272,6 +272,15 @@ export const firstAdminVerificationRow = (
   return data ?? undefined;
 };
 
+export const firstAdminParticipantRow = (
+  data: AdminParticipantRow | AdminParticipantRow[] | null,
+): AdminParticipantRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
 const mapOperatingHourRow = (row: OperatingHourRow): OperatingHour => ({
   dayOfWeek: row.day_of_week,
   openTime: row.open_time,

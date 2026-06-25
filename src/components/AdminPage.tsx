@@ -11,6 +11,7 @@ type AdminPageProps = {
   readonly adminBlocks: readonly AdminBlock[];
   readonly readOnly: boolean;
   readonly onUpdateUser: (user: ParticipantUser) => void;
+  readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
   readonly onUpdateSpace: (space: Space) => void;
   readonly onAddSpace: (space: Space) => void;
   readonly onDeleteSession: (sessionId: string) => void;
@@ -25,6 +26,7 @@ export function AdminPage(props: AdminPageProps) {
         applications={props.applications}
         readOnly={props.readOnly}
         onUpdateUser={props.onUpdateUser}
+        onToggleApproval={props.onToggleApproval}
       />
       <AdminReservationTable
         applications={props.applications}

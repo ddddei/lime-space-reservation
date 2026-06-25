@@ -5,6 +5,7 @@ import { initialUsers } from "../data/mockUsers";
 import { findAdminByNameAndPhone, findParticipantByNameAndPhone, type AdminAuthResult, type ParticipantAuthResult } from "./participantAuth";
 import { isSupabaseConfigured, supabaseClient } from "./supabaseClient";
 import {
+  firstAdminParticipantRow,
   firstAdminVerificationRow,
   firstParticipantVerificationRow,
   mapAdminApplicationRows,
@@ -231,6 +232,39 @@ export const verifyAdminLogin = async (
     admin: mapAdminVerificationRow(row, phone),
     message: "관리자 확인이 완료되었습니다.",
   };
+};
+
+export type ApprovalUpdateResult =
+  | { readonly status: "ok"; readonly user: ParticipantUser }
+  | { readonly status: "error"; readonly message: string };
+
+export const updateParticipantReservationApproval = async (
+  admin: AdminCredentials,
+  participantId: string,
+  isApproved: boolean,
+): Promise<ApprovalUpdateResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("update_participant_reservation_approval", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_participant_id: participantId,
+    input_is_approved: isApproved,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("update_participant_reservation_approval RPC", response.error);
+    return { status: "error", message: "예약 승인 상태를 변경할 수 없습니다." };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: "예약 승인 상태를 변경할 수 없습니다." };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
 };
 
 export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
