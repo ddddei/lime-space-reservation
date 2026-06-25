@@ -119,6 +119,9 @@ function UserHero(props: UserReservationFlowProps) {
             끝자리 {props.authenticatedUser.phoneLast4}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className={`rounded-full px-3 py-1 text-xs font-black ${props.authenticatedUser.hasAdminApproval ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FFF6E3] text-[#B76E00]"}`}>
+              {props.authenticatedUser.hasAdminApproval ? "예약 승인 완료" : "예약 승인 대기"}
+            </span>
             <span className={`rounded-full px-3 py-1 text-xs font-black ${props.eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
               {props.eligibility.canReserve ? "예약 가능" : "예약 불가"}
             </span>

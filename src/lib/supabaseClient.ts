@@ -89,6 +89,15 @@ type ReservationDatabase = {
         };
         readonly Returns: AdminBlockRow[];
       };
+      readonly update_participant_reservation_approval: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_participant_id: string;
+          readonly input_is_approved: boolean;
+        };
+        readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
     };
     readonly Enums: Record<string, never>;
     readonly CompositeTypes: Record<string, never>;

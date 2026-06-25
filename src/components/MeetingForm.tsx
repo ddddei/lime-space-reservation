@@ -1,3 +1,4 @@
+import { RESERVATION_APPROVAL_GUIDE_MESSAGE } from "../lib/permissions";
 import type { SelectedTimeRange } from "../lib/timeSelection";
 import type { EligibilityResult, ParticipantUser, SaveValidationResult } from "../types/reservation";
 
@@ -50,9 +51,14 @@ export function MeetingForm(props: MeetingFormProps) {
           </ul>
         </div>
       )}
+      {!props.selectedUser.hasAdminApproval && (
+        <div className="mt-3 rounded-lg border border-[#FBDFAE] bg-[#FFF6E3] px-3 py-2 text-sm font-bold text-[#B76E00]">
+          {RESERVATION_APPROVAL_GUIDE_MESSAGE}
+        </div>
+      )}
       <button
         type="button"
-        disabled={!props.saveValidation.canSave || props.meetingName.trim().length === 0}
+        disabled={!props.selectedUser.hasAdminApproval || !props.saveValidation.canSave || props.meetingName.trim().length === 0}
         onClick={props.onSubmit}
         className="mt-4 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
