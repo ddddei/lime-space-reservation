@@ -10,14 +10,15 @@ type AdminPageProps = {
   readonly spaces: readonly Space[];
   readonly adminBlocks: readonly AdminBlock[];
   readonly readOnly: boolean;
+  readonly isRefreshingApplications: boolean;
+  readonly refreshApplicationsError?: string;
   readonly onUpdateUser: (user: ParticipantUser) => void;
   readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
   readonly onUpdateSpace: (space: Space) => void;
   readonly onAddSpace: (space: Space) => void;
-  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
+  readonly onRefreshApplications: () => void;
+  readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddBlock: (block: AdminBlock) => void;
-  readonly onRefresh: () => void;
-  readonly isRefreshing: boolean;
 };
 
 export function AdminPage(props: AdminPageProps) {
@@ -33,9 +34,10 @@ export function AdminPage(props: AdminPageProps) {
       <AdminReservationTable
         applications={props.applications}
         spaces={props.spaces}
-        onCancelMeeting={props.onCancelMeeting}
-        onRefresh={props.onRefresh}
-        isRefreshing={props.isRefreshing}
+        isRefreshing={props.isRefreshingApplications}
+        refreshError={props.refreshApplicationsError}
+        onRefresh={props.onRefreshApplications}
+        onCancelSession={props.onCancelSession}
       />
       <AdminBlockForm spaces={props.spaces} adminBlocks={props.adminBlocks} readOnly={props.readOnly} onAddBlock={props.onAddBlock} />
       <SpaceAdminEditor spaces={props.spaces} readOnly={props.readOnly} onUpdateSpace={props.onUpdateSpace} onAddSpace={props.onAddSpace} />

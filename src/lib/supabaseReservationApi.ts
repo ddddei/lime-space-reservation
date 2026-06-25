@@ -277,6 +277,14 @@ export type SubmitReservationResult =
   | { readonly status: "ok"; readonly meeting?: Meeting; readonly sessions: readonly ReservationSession[] }
   | { readonly status: "error"; readonly message: string };
 
+export type CancelReservationSessionRequester =
+  | { readonly kind: "participant"; readonly participantId: string }
+  | { readonly kind: "admin"; readonly credentials: AdminCredentials };
+
+export type CancelReservationSessionResult =
+  | { readonly status: "ok"; readonly meeting?: Meeting; readonly sessions: readonly ReservationSession[] }
+  | { readonly status: "error"; readonly message: string };
+
 export const submitReservationApplication = async (
   participantId: string,
   meetingName: string,
@@ -352,6 +360,34 @@ export const cancelReservationApplication = async (
     status: "ok",
     meetingId: row.meeting_id,
     cancelledSessionCount: row.cancelled_session_count ?? 0,
+  };
+};
+
+export const cancelReservationSession = async (
+  sessionId: string,
+  requester: CancelReservationSessionRequester,
+): Promise<CancelReservationSessionResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("cancel_reservation_session", {
+    input_session_id: sessionId,
+    input_participant_id: requester.kind === "participant" ? requester.participantId : null,
+    input_admin_name: requester.kind === "admin" ? requester.credentials.name.trim() : null,
+    input_admin_phone: requester.kind === "admin" ? requester.credentials.phone.trim() : null,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("cancel_reservation_session RPC", response.error);
+    return { status: "error", message: toReservationFailureMessage(response.error) };
+  }
+
+  const rows = response.data ?? [];
+  return {
+    status: "ok",
+    meeting: mapReservationSubmissionRowsToMeeting(rows),
+    sessions: mapReservationSubmissionRowsToSessions(rows),
   };
 };
 

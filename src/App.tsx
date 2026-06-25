@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminLogin } from "./components/AdminLogin";
 import { AdminPage } from "./components/AdminPage";
 import { AdminSummary } from "./components/AdminSummary";
 import { ParticipantLogin } from "./components/ParticipantLogin";
-import { UserReservationFlow } from "./components/UserReservationFlow";
+import { UserReservationFlow, type SessionActionResult } from "./components/UserReservationFlow";
 import { initialAdminBlocks } from "./data/mockAdminBlocks";
 import { initialMeetings } from "./data/mockMeetings";
 import { initialSessions } from "./data/mockSessions";
@@ -14,8 +14,8 @@ import {
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
 import {
-  cancelReservationApplication,
   canUseMockFallback,
+  cancelReservationSession,
   fetchAdminReadModel,
   fetchReservationReadModel,
   updateParticipantReservationApproval,
@@ -36,13 +36,14 @@ export function App() {
   const [publicAdminBlocks, setPublicAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
   const [adminApplications, setAdminApplications] = useState<readonly AdminApplication[]>([]);
+  const [isRefreshingAdminApplications, setIsRefreshingAdminApplications] = useState(false);
+  const [refreshAdminApplicationsError, setRefreshAdminApplicationsError] = useState<string | undefined>();
   const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>();
   const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>();
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
-  const [isRefreshingAdminData, setIsRefreshingAdminData] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -58,6 +59,25 @@ export function App() {
       isCurrent = false;
     };
   }, []);
+
+  const refreshAdminReadModel = useCallback(async (): Promise<boolean> => {
+    if (authenticatedAdmin === undefined) {
+      return false;
+    }
+    setIsRefreshingAdminApplications(true);
+    setRefreshAdminApplicationsError(undefined);
+    const model = await fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone });
+    setIsRefreshingAdminApplications(false);
+    if (model === undefined) {
+      setRefreshAdminApplicationsError("관리자 신청 목록을 불러올 수 없습니다.");
+      return false;
+    }
+    setAdminUsers(model.participants);
+    setAdminSpaces(model.spaces);
+    setAdminApplications(model.applications);
+    setAdminBlocks(model.adminBlocks);
+    return true;
+  }, [authenticatedAdmin]);
 
   useEffect(() => {
     if (authenticatedAdmin === undefined) {
@@ -98,61 +118,60 @@ export function App() {
     return true;
   };
 
-  const handleRefreshAdminData = async (): Promise<void> => {
-    if (authenticatedAdmin === undefined || isRefreshingAdminData) {
+  const markSessionCancelled = (sessionId: string, meeting?: Meeting): void => {
+    const existingSession = sessions.find((session) => session.id === sessionId);
+    setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session));
+    if (meeting !== undefined) {
+      setMeetings((current) => current.map((item) => item.id === meeting.id ? meeting : item));
       return;
     }
-    setIsRefreshingAdminData(true);
-    const model = await fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone });
-    if (model !== undefined) {
-      setAdminUsers(model.participants);
-      setAdminSpaces(model.spaces);
-      setAdminApplications(model.applications);
-      setAdminBlocks(model.adminBlocks);
+    if (existingSession === undefined) {
+      return;
     }
-    setIsRefreshingAdminData(false);
+    const remainingActiveSessionCount = sessions.filter(
+      (session) => session.meetingId === existingSession.meetingId && session.id !== sessionId && session.status !== "cancelled",
+    ).length;
+    if (remainingActiveSessionCount === 0) {
+      setMeetings((current) => current.map((item) => item.id === existingSession.meetingId ? { ...item, status: "rejected" } : item));
+    }
   };
 
-  const handleCancelMeetingAsParticipant = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
+  const handleUserCancelSession = async (sessionId: string): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      markSessionCancelled(sessionId);
+      return { status: "ok" };
+    }
     if (authenticatedUser === undefined) {
-      return { ok: false, message: "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+      return { status: "error", message: "참여자 정보를 확인할 수 없습니다." };
     }
-    if (allowMockFallback) {
-      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
-      return { ok: true };
-    }
-    const result = await cancelReservationApplication(meetingId, {
-      type: "participant",
-      name: authenticatedUser.name,
-      phone: authenticatedUser.phone,
+    const result = await cancelReservationSession(sessionId, {
+      kind: "participant",
+      participantId: authenticatedUser.id,
     });
-    if (result.status !== "ok") {
-      return { ok: false, message: result.message };
+    if (result.status === "error") {
+      return result;
     }
-    setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
-    return { ok: true };
+    markSessionCancelled(sessionId, result.meeting);
+    return { status: "ok" };
   };
 
-  const handleCancelMeetingAsAdmin = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
+  const handleAdminCancelSession = async (sessionId: string): Promise<SessionActionResult> => {
     if (allowMockFallback) {
-      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
-      return { ok: true };
+      markSessionCancelled(sessionId);
+      return { status: "ok" };
     }
     if (authenticatedAdmin === undefined) {
-      return { ok: false, message: "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
     }
-    const result = await cancelReservationApplication(meetingId, {
-      type: "admin",
-      name: authenticatedAdmin.name,
-      phone: authenticatedAdmin.phone,
+    const result = await cancelReservationSession(sessionId, {
+      kind: "admin",
+      credentials: { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
     });
-    if (result.status !== "ok") {
-      return { ok: false, message: result.message };
+    if (result.status === "error") {
+      return result;
     }
-    setAdminApplications((current) =>
-      current.map((application) => application.meetingId === meetingId ? { ...application, sessionStatus: "cancelled" } : application),
-    );
-    return { ok: true };
+    await refreshAdminReadModel();
+    return { status: "ok" };
   };
 
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
@@ -229,8 +248,8 @@ export function App() {
             onSelectDate={setSelectedDate}
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
+            onCancelSession={handleUserCancelSession}
             onLogout={() => setAuthenticatedUser(undefined)}
-            onCancelMeeting={handleCancelMeetingAsParticipant}
           />
         ) : mode === "user" ? (
           <section className="rounded-lg border border-[#DDE8D6] bg-white p-6 text-sm font-semibold text-[#5B6856]">
@@ -243,6 +262,7 @@ export function App() {
             <AdminSummary admin={authenticatedAdmin} onLogout={() => {
               setAuthenticatedAdmin(undefined);
               setAdminApplications([]);
+              setRefreshAdminApplicationsError(undefined);
               if (!allowMockFallback) {
                 setAdminUsers([]);
                 setAdminSpaces([]);
@@ -255,14 +275,17 @@ export function App() {
               spaces={adminSpaces}
               adminBlocks={adminBlocks}
               readOnly={!allowMockFallback}
+              isRefreshingApplications={isRefreshingAdminApplications}
+              refreshApplicationsError={refreshAdminApplicationsError}
               onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
               onToggleApproval={handleToggleApproval}
               onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
-              onCancelMeeting={handleCancelMeetingAsAdmin}
+              onRefreshApplications={() => {
+                void refreshAdminReadModel();
+              }}
+              onCancelSession={handleAdminCancelSession}
               onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
-              onRefresh={handleRefreshAdminData}
-              isRefreshing={isRefreshingAdminData}
             />
           </div>
         )}

@@ -117,6 +117,15 @@ type ReservationDatabase = {
         };
         readonly Returns: CancelReservationRow | CancelReservationRow[] | null;
       };
+      readonly cancel_reservation_session: {
+        readonly Args: {
+          readonly input_session_id: string;
+          readonly input_participant_id?: string | null;
+          readonly input_admin_name?: string | null;
+          readonly input_admin_phone?: string | null;
+        };
+        readonly Returns: AdminApplicationRow[] | null;
+      };
     };
     readonly Enums: Record<string, never>;
     readonly CompositeTypes: Record<string, never>;

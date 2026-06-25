@@ -77,7 +77,7 @@ export function MeetingForm(props: MeetingFormProps) {
       </button>
       {props.submitError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">
-          <p className="font-bold">신청 저장 실패</p>
+          <p className="font-bold">신청 실패</p>
           <p className="mt-1">{props.submitError}</p>
         </div>
       )}
