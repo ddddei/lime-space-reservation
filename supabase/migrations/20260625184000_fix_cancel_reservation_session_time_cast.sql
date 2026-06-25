@@ -3,6 +3,8 @@
 -- 관리자는 이름/전화번호 확인 후 어느 신청이든 취소할 수 있고,
 -- 참여자는 본인 신청 회차만 취소할 수 있습니다.
 
+drop function if exists public.cancel_reservation_session(text, text, text, text);
+
 create or replace function public.cancel_reservation_session(
   input_session_id text,
   input_participant_id text default null,

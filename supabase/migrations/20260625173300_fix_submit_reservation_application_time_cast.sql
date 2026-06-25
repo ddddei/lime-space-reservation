@@ -15,6 +15,7 @@
 -- participant_id / meeting_id / session_id / space_id 는 모든 비교에서 ::text 캐스팅을 사용해
 -- 실제 컬럼이 uuid든 text든 동작하도록 작성했습니다.
 
+drop function if exists public.submit_reservation_application(text, text, jsonb);
 create extension if not exists pgcrypto;
 
 create or replace function public.submit_reservation_application(
@@ -147,8 +148,8 @@ begin
       where oh.space_id::text = (v_session ->> 'space_id')
         and oh.day_of_week = extract(dow from (v_session ->> 'date')::date)
         and oh.is_closed = false
-        and (v_session ->> 'start_time')::time >= oh.open_time
-        and (v_session ->> 'end_time')::time <= oh.close_time
+        and (v_session ->> 'start_time')::time >= oh.open_time::time
+        and (v_session ->> 'end_time')::time <= oh.close_time::time
     ) then
       raise exception '운영 시간 범위를 벗어났습니다.';
     end if;
@@ -160,8 +161,8 @@ begin
       where ab.space_id::text = (v_session ->> 'space_id')
         and ab.date = (v_session ->> 'date')::date
         and ab.is_active = true
-        and ab.start_time < (v_session ->> 'end_time')::time
-        and ab.end_time > (v_session ->> 'start_time')::time
+        and ab.start_time::time < (v_session ->> 'end_time')::time
+        and ab.end_time::time > (v_session ->> 'start_time')::time
     ) then
       raise exception '관리자 차단 일정과 겹칩니다.';
     end if;
