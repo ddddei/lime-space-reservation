@@ -6,6 +6,7 @@ import type {
   AdminVerificationRow,
   OperatingHourRow,
   ParticipantVerificationRow,
+  SpaceImageRow,
   SpaceRow,
 } from "./supabaseMappers";
 
@@ -14,6 +15,12 @@ type ReservationDatabase = {
     readonly Tables: {
       readonly spaces: {
         readonly Row: SpaceRow;
+        readonly Insert: never;
+        readonly Update: never;
+        readonly Relationships: [];
+      };
+      readonly space_images: {
+        readonly Row: SpaceImageRow;
         readonly Insert: never;
         readonly Update: never;
         readonly Relationships: [];

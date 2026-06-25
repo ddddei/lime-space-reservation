@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SpaceCreateForm } from "./SpaceCreateForm";
 import { getSpaceCategoryLabel } from "../lib/displayLabels";
-import type { Space } from "../types/reservation";
+import type { Space, SpaceImage } from "../types/reservation";
 
 type SpaceAdminEditorProps = {
   readonly spaces: readonly Space[];
@@ -67,6 +67,7 @@ export function SpaceAdminEditor({ spaces, readOnly, onUpdateSpace, onAddSpace }
                   {expanded ? "수정 닫기" : "수정 열기"}
                 </button>
               </div>
+              <AdminSpaceImages space={space} />
               {expanded && (
                 <div className="mt-3 grid gap-3 rounded-lg bg-[#F7FBF4] p-3">
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_120px]">
@@ -186,6 +187,67 @@ export function SpaceAdminEditor({ spaces, readOnly, onUpdateSpace, onAddSpace }
 }
 
 const inputClassName = "min-w-0 w-full rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium";
+
+function AdminSpaceImages({ space }: { readonly space: Space }) {
+  const images = getAdminDisplayImages(space);
+  const [failedImageIds, setFailedImageIds] = useState<readonly string[]>([]);
+
+  if (images.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="mt-3 grid gap-2">
+      <p className="text-xs font-extrabold text-[#5B6856]">등록 이미지 {images.length}장</p>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {images.map((image, index) => {
+          const showImage = image.imageUrl.trim().length > 0 && !failedImageIds.includes(image.id);
+          return (
+            <figure key={image.id} className="w-28 shrink-0 overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
+              <div className="h-20 bg-[#070A07]">
+                {showImage ? (
+                  <img
+                    src={image.imageUrl}
+                    alt={image.altText ?? `${space.name} 사진 ${index + 1}`}
+                    className="h-full w-full object-cover"
+                    width="112"
+                    height="80"
+                    onError={() => setFailedImageIds((current) => [...current, image.id])}
+                  />
+                ) : (
+                  <div className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#070A07,#1A2419_52%,#2C3A2B)] text-[10px] font-black text-[#A6F15B]">
+                    LIME
+                  </div>
+                )}
+              </div>
+              <figcaption className="truncate px-2 py-1 text-[11px] font-bold text-[#5B6856]">
+                {image.isPrimary ? "대표" : `${index + 1}번`}
+              </figcaption>
+            </figure>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function getAdminDisplayImages(space: Space): readonly SpaceImage[] {
+  if (space.images !== undefined && space.images.length > 0) {
+    return space.images;
+  }
+  if (space.imageUrl.trim().length === 0) {
+    return [];
+  }
+  return [{
+    id: `${space.id}-admin-primary-image`,
+    spaceId: space.id,
+    imageUrl: space.imageUrl,
+    altText: `${space.name} 사진`,
+    sortOrder: 0,
+    isPrimary: true,
+    isActive: true,
+  }];
+}
 
 function StatusChip(props: { readonly active: boolean; readonly activeLabel: string; readonly inactiveLabel: string }) {
   return (

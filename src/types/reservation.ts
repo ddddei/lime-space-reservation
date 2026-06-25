@@ -26,6 +26,7 @@ export type Space = {
   readonly capacity: number;
   readonly description: string;
   readonly imageUrl: string;
+  readonly images?: readonly SpaceImage[];
   readonly features: readonly string[];
   readonly operatingHours: readonly OperatingHour[];
   readonly isActive: boolean;
@@ -36,6 +37,17 @@ export type Space = {
   readonly sortOrder: number;
   readonly createdAt?: string;
   readonly updatedAt?: string;
+};
+
+export type SpaceImage = {
+  readonly id: string;
+  readonly spaceId: string;
+  readonly imageUrl: string;
+  readonly altText?: string;
+  readonly sortOrder: number;
+  readonly isPrimary: boolean;
+  readonly isActive: boolean;
+  readonly createdAt?: string;
 };
 
 export type ParticipantUser = {
