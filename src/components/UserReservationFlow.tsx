@@ -1,5 +1,5 @@
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Camera, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ExternalLink, LogOut, MessageCircle, X } from "lucide-react";
 import { EligibilityPanel } from "./EligibilityPanel";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
@@ -123,7 +123,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
             />
           </StepFrame>
         </div>
-        <aside className="grid content-start gap-5 lg:sticky lg:top-6 lg:self-start">
+        <aside className="grid content-start gap-5 lg:sticky lg:top-24 lg:self-start">
           <EligibilityPanel eligibility={props.eligibility} user={props.authenticatedUser} />
           <MyMeetings
             userId={props.authenticatedUser.id}
@@ -152,11 +152,13 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
             refreshError={props.refreshReservationsError}
             onRefresh={props.onRefreshReservations}
           />
+          <ContactCard />
         </aside>
       </div>
       {isReservationOpen && (
         <ReservationDialog
           {...props}
+          isEscapeDisabled={lightbox !== undefined}
           isSubmitting={isSubmitting}
           submitError={submitError}
           onClose={() => setIsReservationOpen(false)}
@@ -197,10 +199,10 @@ function UserHero(props: UserReservationFlowProps) {
           </p>
         </div>
         <div className="ui-card-soft rounded-2xl p-5">
-          <p className="text-xs font-black text-[#5F9820]">현재 호스트</p>
+          <p className="text-xs font-black text-[#5F9820]">현재 Host</p>
           <h3 className="mt-2 text-2xl font-black text-[#172014]">{props.authenticatedUser.name}</h3>
-          <p className="mt-2 text-sm text-[#5B6856]">
-            끝자리 {props.authenticatedUser.phoneLast4}
+          <p className="mt-2 text-sm font-semibold text-[#5B6856]">
+            관리번호 끝자리 {props.authenticatedUser.phoneLast4}
           </p>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-3 py-1 text-xs font-black ${props.authenticatedUser.hasAdminApproval ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FFF6E3] text-[#B76E00]"}`}>
@@ -209,18 +211,49 @@ function UserHero(props: UserReservationFlowProps) {
             <span className={`rounded-full px-3 py-1 text-xs font-black ${props.eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
               {props.eligibility.canReserve ? "예약 가능" : "예약 불가"}
             </span>
-            <button type="button" onClick={props.onLogout} className="ui-button ui-button-ghost min-h-8 rounded-full px-3 py-1 text-xs">
-              다른 호스트
-            </button>
           </div>
+          <button type="button" onClick={props.onLogout} className="ui-button ui-button-ghost mt-5 w-full justify-between">
+            <span className="inline-flex items-center gap-2">
+              <LogOut size={16} strokeWidth={2.3} />
+              로그아웃
+            </span>
+            <span className="text-xs font-bold text-[#819078]">다른 호스트로 로그인</span>
+          </button>
         </div>
       </div>
     </section>
   );
 }
 
+function ContactCard() {
+  return (
+    <section className="ui-card rounded-2xl p-4">
+      <div className="flex items-start gap-3">
+        <MessageCircle className="mt-0.5 text-[#5F9820]" size={20} strokeWidth={2.4} />
+        <div>
+          <p className="text-xs font-black text-[#5F9820]">문의하기</p>
+          <h2 className="mt-1 text-lg font-black text-[#172014]">문의 및 일정 안내</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5B6856]">
+            Discord 문의채널 또는 Peace Manager 글품, 째니, 키키에게 DM 주세요.
+          </p>
+        </div>
+      </div>
+      <a
+        href="https://discord.gg/PE8dVfCpU"
+        target="_blank"
+        rel="noreferrer"
+        className="ui-button ui-button-primary mt-4 w-full"
+      >
+        Discord 문의채널
+        <ExternalLink size={15} strokeWidth={2.3} />
+      </a>
+    </section>
+  );
+}
+
 type ReservationDialogProps = UserReservationFlowProps & {
   readonly onClose: () => void;
+  readonly isEscapeDisabled: boolean;
   readonly isSubmitting: boolean;
   readonly submitError?: string;
   readonly onSubmit: () => void;
@@ -228,11 +261,11 @@ type ReservationDialogProps = UserReservationFlowProps & {
 };
 
 function ReservationDialog(props: ReservationDialogProps) {
-  useEscapeClose(props.onClose);
+  useEscapeClose(props.onClose, props.isEscapeDisabled);
 
   return (
     <div
-      className="fixed inset-0 z-50 grid bg-[#070A07]/70 p-3 backdrop-blur-sm md:p-6"
+      className="ui-modal-scrim fixed inset-0 z-50 grid p-3 md:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-dialog-title"
@@ -286,7 +319,7 @@ function ReservationDialog(props: ReservationDialogProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </div>
-          <aside className="grid content-start gap-4 self-start xl:sticky xl:top-5">
+          <aside className="grid content-start gap-4 self-start xl:sticky xl:top-24">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -325,7 +358,7 @@ function ReservationCompleteDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm"
+      className="ui-modal-scrim fixed inset-0 z-50 grid place-items-center p-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="reservation-complete-title"
@@ -461,8 +494,11 @@ type LightboxState = {
   readonly initialIndex: number;
 };
 
-function useEscapeClose(onClose: () => void): void {
+function useEscapeClose(onClose: () => void, disabled = false): void {
   useEffect(() => {
+    if (disabled) {
+      return;
+    }
     const handleKeyDown = (event: KeyboardEvent): void => {
       if (event.key === "Escape") {
         onClose();
@@ -470,7 +506,7 @@ function useEscapeClose(onClose: () => void): void {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose]);
+  }, [disabled, onClose]);
 }
 
 function ImageLightbox({
@@ -513,7 +549,7 @@ function ImageLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[70] grid bg-[#070A07]/90 p-3 backdrop-blur-sm md:p-6"
+      className="ui-modal-scrim fixed inset-0 z-[70] grid p-3 md:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="image-lightbox-title"
@@ -611,8 +647,9 @@ function getDisplayImages(space: Space): readonly SpaceImage[] {
 }
 
 function SelectedSpaceSummary({ space }: { readonly space: Space }) {
+  const featureGroups = getFeatureGroups(space);
   return (
-    <section className="rounded-2xl bg-white p-4">
+    <section className="ui-card-soft rounded-2xl p-4">
       <p className="text-xs font-black text-[#5F9820]">선택한 공간</p>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -622,15 +659,61 @@ function SelectedSpaceSummary({ space }: { readonly space: Space }) {
         </div>
         <span className="rounded-full bg-[#E8F5DE] px-3 py-1 text-xs font-black text-[#178A46]">예약 가능</span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        {space.features.map((feature) => (
-          <span key={feature} className="rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-2 py-1 text-xs font-bold text-[#5B6856]">
-            {feature}
-          </span>
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        {featureGroups.map((group) => (
+          <div key={group.label} className="rounded-2xl bg-[#F7FBF4] p-3">
+            <p className="text-xs font-black text-[#819078]">{group.label}</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {group.items.map((feature) => (
+                <span key={feature} className="rounded-full bg-white px-2.5 py-1 text-xs font-bold text-[#5B6856]">
+                  {feature}
+                </span>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
     </section>
   );
+}
+
+function getFeatureGroups(space: Space): readonly { readonly label: string; readonly items: readonly string[] }[] {
+  const groups = [
+    { label: "운영 / 수용", items: [`최대 ${space.capacity}명`] as string[] },
+    { label: "장비 / 비품", items: [] as string[] },
+    { label: "음식 가능 여부", items: [] as string[] },
+    { label: "특징 / 관리 메모", items: [] as string[] },
+  ];
+
+  for (const feature of space.features) {
+    if (isOperatingFeature(feature)) {
+      groups[0].items.push(feature);
+      continue;
+    }
+    if (isFoodFeature(feature)) {
+      groups[2].items.push(feature);
+      continue;
+    }
+    if (isAmenityFeature(feature)) {
+      groups[1].items.push(feature);
+      continue;
+    }
+    groups[3].items.push(feature);
+  }
+
+  return groups.filter((group) => group.items.length > 0);
+}
+
+function isOperatingFeature(feature: string): boolean {
+  return /운영|휴무|예약|상시|평일|주말|명|시간|\d{1,2}:\d{2}/.test(feature);
+}
+
+function isFoodFeature(feature: string): boolean {
+  return /음식|음료|다과|커피|주류|취식|반입|조리/.test(feature);
+}
+
+function isAmenityFeature(feature: string): boolean {
+  return /TV|HDMI|스피커|빔|프로젝터|와이파이|Wi-Fi|콘센트|냉난방|화이트보드|정수기|냉장고|마이크|모니터|테이블|의자/.test(feature);
 }
 
 function StepFrame(props: { readonly title: string; readonly description: string; readonly children: ReactNode }) {

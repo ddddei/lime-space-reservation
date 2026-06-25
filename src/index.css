@@ -178,7 +178,6 @@ textarea:focus-visible {
 }
 
 .ui-card {
-  border: 1px solid rgba(221, 232, 214, 0.08);
   background: color-mix(in srgb, var(--surface-secondary) 94%, transparent);
   box-shadow: var(--shadow-card);
 }
@@ -264,4 +263,32 @@ textarea:focus-visible {
 .ui-modal-panel {
   background: color-mix(in srgb, var(--surface-secondary) 96%, transparent);
   box-shadow: var(--shadow-modal);
+  animation: modal-enter 160ms ease-out;
+}
+
+.ui-modal-scrim {
+  background: rgba(6, 9, 6, 0.76);
+  backdrop-filter: blur(12px);
+}
+
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  border-bottom: 1px solid rgba(180, 241, 71, 0.1);
+  background: rgba(6, 9, 6, 0.86);
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.18);
+  backdrop-filter: blur(18px);
+}
+
+@keyframes modal-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }

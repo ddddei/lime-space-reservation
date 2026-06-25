@@ -30,7 +30,7 @@ export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mx-auto grid max-w-2xl gap-4 rounded-[24px] border border-[#DDE8D6] bg-white p-5 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+      className="ui-card mx-auto grid max-w-2xl gap-4 rounded-2xl p-5"
     >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인</p>
@@ -45,7 +45,7 @@ export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
+            className="ui-input font-medium"
             placeholder="관리자"
           />
         </label>
@@ -55,7 +55,7 @@ export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             inputMode="tel"
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
+            className="ui-input font-medium"
             placeholder="010-9000-1000"
           />
         </label>
@@ -74,7 +74,7 @@ export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
         type="submit"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
         aria-busy={isSubmitting}
-        className="rounded-lg bg-[#172014] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#2F3B2A] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
+        className="ui-button ui-button-secondary w-full"
       >
         {isSubmitting ? "확인 중" : "관리자 로그인"}
       </button>

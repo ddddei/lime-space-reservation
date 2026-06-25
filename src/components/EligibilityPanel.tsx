@@ -8,7 +8,7 @@ type EligibilityPanelProps = {
 
 export function EligibilityPanel({ eligibility, user }: EligibilityPanelProps) {
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="ui-card rounded-2xl p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">예약 가능 여부</h2>
@@ -23,7 +23,7 @@ export function EligibilityPanel({ eligibility, user }: EligibilityPanelProps) {
           </span>
         </div>
       </div>
-      <div className="mt-3 rounded-lg bg-[#F7FBF4] p-3 text-sm text-[#5B6856]">
+      <div className="mt-3 rounded-2xl bg-[#F7FBF4] p-3 text-sm text-[#5B6856]">
         사용 {eligibility.usedBlocks / 2}시간 / 최대 {user.maxBlocks / 2}시간, 잔여 {eligibility.remainingBlocks / 2}시간
       </div>
       {!user.hasAdminApproval && (

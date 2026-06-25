@@ -25,7 +25,7 @@ export function ParticipantLogin({ onAuthenticated }: ParticipantLoginProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="mx-auto grid max-w-3xl gap-5 rounded-[28px] border border-[#DDE8D6] bg-white p-6 shadow-[0_8px_24px_rgba(23,32,20,0.08)]"
+      className="ui-card mx-auto grid max-w-3xl gap-5 rounded-2xl p-6"
     >
       <div>
         <p className="text-sm font-extrabold text-[#5F9820]">참여자 본인 확인</p>
@@ -41,7 +41,7 @@ export function ParticipantLogin({ onAuthenticated }: ParticipantLoginProps) {
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
+            className="ui-input font-medium"
             placeholder="예: 김라임"
           />
         </label>
@@ -51,7 +51,7 @@ export function ParticipantLogin({ onAuthenticated }: ParticipantLoginProps) {
             value={phone}
             onChange={(event) => setPhone(event.target.value)}
             inputMode="tel"
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
+            className="ui-input font-medium"
             placeholder="010-1234-5678"
           />
         </label>
@@ -70,7 +70,7 @@ export function ParticipantLogin({ onAuthenticated }: ParticipantLoginProps) {
 
       <button
         type="submit"
-        className="rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
+        className="ui-button ui-button-primary w-full"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
         aria-busy={isSubmitting}
       >

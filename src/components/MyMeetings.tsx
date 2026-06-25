@@ -331,7 +331,7 @@ function ConfirmCancelDialog({ onCancel, onConfirm }: { readonly onCancel: () =>
   }, [onCancel]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title" onMouseDown={onCancel}>
+    <div className="ui-modal-scrim fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title" onMouseDown={onCancel}>
       <div className="ui-modal-panel w-full max-w-sm rounded-2xl p-5" onMouseDown={(event) => event.stopPropagation()}>
         <h3 id="cancel-dialog-title" className="text-lg font-black text-[#172014]">이 신청을 취소하시겠습니까?</h3>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">이 신청을 취소할까요? 취소된 신청은 목록에서 숨겨지고, 담당자 화면에는 취소됨으로 표시됩니다.</p>

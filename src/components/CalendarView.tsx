@@ -29,7 +29,7 @@ export function CalendarView(props: CalendarViewProps) {
   const [visibleMonthIndex, setVisibleMonthIndex] = useState(getMonthIndex(props.selectedDate));
   const selectedMetrics = getDateMetrics(props.selectedDate, props.selectedSpace, props.sessions, props.adminBlocks);
   return (
-    <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4 md:p-5">
+    <section className="ui-card rounded-2xl p-4 md:p-5">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-xs font-black text-[#5F9820]">날짜 선택</p>

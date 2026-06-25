@@ -134,9 +134,6 @@ const fetchParticipantReservationsFromRpc = async (
 
   if (response.error !== null) {
     warnSupabaseReadError("get_participant_applications RPC", response.error);
-    if (response.error.code !== "PGRST202") {
-      return undefined;
-    }
     return fetchParticipantReservationsFromTables(participantId);
   }
 
@@ -161,7 +158,7 @@ const mapParticipantApplicationRows = (
 
 const fetchParticipantReservationsFromTables = async (
   participantId: string,
-): Promise<ParticipantReservationReadModel> => {
+): Promise<ParticipantReservationReadModel | undefined> => {
   if (supabaseClient === undefined) {
     return { meetings: [], sessions: [] };
   }
@@ -173,7 +170,7 @@ const fetchParticipantReservationsFromTables = async (
 
   if (meetingsResponse.error !== null) {
     warnSupabaseReadError("참여자 meetings 조회", meetingsResponse.error);
-    return { meetings: [], sessions: [] };
+    return undefined;
   }
 
   const meetingIds = (meetingsResponse.data ?? []).map((meeting) => meeting.meeting_id);
@@ -190,7 +187,7 @@ const fetchParticipantReservationsFromTables = async (
 
   if (sessionsResponse.error !== null) {
     warnSupabaseReadError("참여자 sessions 조회", sessionsResponse.error);
-    return { meetings: mapMeetingRows(meetingsResponse.data ?? []), sessions: [] };
+    return undefined;
   }
 
   return {

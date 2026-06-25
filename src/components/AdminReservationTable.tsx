@@ -276,7 +276,7 @@ function ConfirmCancelDialog({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title" onMouseDown={onClose}>
+    <div className="ui-modal-scrim fixed inset-0 z-50 grid place-items-center p-4" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title" onMouseDown={onClose}>
       <div className="ui-modal-panel w-full max-w-sm rounded-2xl p-5" onMouseDown={(event) => event.stopPropagation()}>
         <h3 id="admin-cancel-dialog-title" className="text-lg font-black text-[#172014]">신청 취소</h3>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">

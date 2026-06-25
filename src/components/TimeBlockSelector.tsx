@@ -42,7 +42,7 @@ export function TimeBlockSelector(props: TimeBlockSelectorProps) {
   const hours = getOperatingHoursForDate(props.date, props.operatingHours);
   const selectedRange = getSelectedTimeRange(props.selectedBlockTimes);
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="ui-card rounded-2xl p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">시간 선택</h2>

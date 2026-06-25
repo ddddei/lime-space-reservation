@@ -287,6 +287,9 @@ export function App() {
       return result;
     }
     markSessionCancelled(sessionId, result.meeting);
+    if (authenticatedUser !== undefined) {
+      markStoredParticipantSessionCancelled(authenticatedUser.id, sessionId, result.meeting, result.sessions);
+    }
     await Promise.all([
       refreshAdminReadModel(),
       refreshReservationReadModel(),
@@ -305,6 +308,7 @@ export function App() {
     : adminApplications;
   const effectiveRefreshAdminApplicationsError = refreshAdminApplicationsError
     ?? (authenticatedAdmin?.phone.trim() === "" ? restoredAdminCredentialsMessage : undefined);
+  const canShowAdminModeButton = authenticatedUser === undefined || authenticatedAdmin !== undefined || mode === "admin";
   const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
@@ -336,11 +340,11 @@ export function App() {
 
   return (
     <main className="min-h-[100dvh] bg-[#F7FBF4] text-[#172014]">
-      <header className="border-b border-[#DDE8D6] bg-white/90 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
+      <header className="app-header">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-3 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-extrabold text-[#5F9820]">라임 공간 예약</p>
-            <h1 className="text-3xl font-extrabold leading-tight md:text-4xl">생활밀착형 제휴공간 예약</h1>
+            <h1 className="text-2xl font-extrabold leading-tight md:text-3xl">생활밀착형 제휴공간 예약</h1>
             <p className="mt-2 max-w-3xl text-sm leading-6 text-[#5B6856]">
               승인된 호스트만 제휴공간을 예약할 수 있습니다.
             </p>
@@ -356,16 +360,18 @@ export function App() {
             >
               사용자 화면
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode("admin");
-                writeStoredMode("admin");
-              }}
-              className={tabClass(mode === "admin")}
-            >
-              관리자 모드
-            </button>
+            {canShowAdminModeButton && (
+              <button
+                type="button"
+                onClick={() => {
+                  setMode("admin");
+                  writeStoredMode("admin");
+                }}
+                className={tabClass(mode === "admin")}
+              >
+                관리자 모드
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -406,7 +412,7 @@ export function App() {
             onLogout={handleParticipantLogout}
           />
         ) : mode === "user" ? (
-          <section className="rounded-lg border border-[#DDE8D6] bg-white p-6 text-sm font-semibold text-[#5B6856]">
+          <section className="ui-card rounded-2xl p-6 text-sm font-semibold text-[#5B6856]">
             표시할 수 있는 생활지향형 제휴공간이 없습니다.
           </section>
         ) : authenticatedAdmin === undefined ? (

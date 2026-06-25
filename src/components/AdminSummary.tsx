@@ -1,3 +1,4 @@
+import { LogOut } from "lucide-react";
 import { getAdminRoleLabel } from "../lib/displayLabels";
 import type { Admin } from "../types/reservation";
 
@@ -8,7 +9,7 @@ type AdminSummaryProps = {
 
 export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
   return (
-    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="ui-card min-w-0 rounded-2xl p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인 완료</p>
@@ -18,8 +19,9 @@ export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
         <button
           type="button"
           onClick={onLogout}
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
+          className="ui-button ui-button-ghost"
         >
+          <LogOut size={16} strokeWidth={2.3} />
           관리자 로그아웃
         </button>
       </div>
