@@ -25,6 +25,10 @@ import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
+type ParticipantReservationSnapshot = {
+  readonly meetings: readonly Meeting[];
+  readonly sessions: readonly ReservationSession[];
+};
 
 const participantSessionKey = "lime-space-reservation.participant-session";
 const participantReservationsKeyPrefix = "lime-space-reservation.participant-reservations.";
@@ -79,11 +83,8 @@ export function App() {
       setRefreshParticipantReservationsError("내 신청 목록을 다시 불러올 수 없습니다.");
       return false;
     }
-    setMeetings((current) => mergeMeetings(current, model.meetings));
-    setSessions((current) => mergeSessions(current, model.sessions));
-    if (model.meetings.length > 0 || model.sessions.length > 0) {
-      writeStoredParticipantReservations(participantId, model);
-    }
+    applyParticipantReservationSnapshot(model, setMeetings, setSessions);
+    writeStoredParticipantReservations(participantId, model);
     return true;
   }, [allowMockFallback]);
 
@@ -113,18 +114,14 @@ export function App() {
       if (!isCurrent) {
         return;
       }
-      setMeetings((current) => mergeMeetings(current, cachedReservations.meetings));
-      setSessions((current) => mergeSessions(current, cachedReservations.sessions));
+      applyParticipantReservationSnapshot(cachedReservations, setMeetings, setSessions);
     });
     void fetchParticipantReservationReadModel(authenticatedUser.id).then((model) => {
       if (!isCurrent || model === undefined) {
         return;
       }
-      setMeetings((current) => mergeMeetings(current, model.meetings));
-      setSessions((current) => mergeSessions(current, model.sessions));
-      if (model.meetings.length > 0 || model.sessions.length > 0) {
-        writeStoredParticipantReservations(authenticatedUser.id, model);
-      }
+      applyParticipantReservationSnapshot(model, setMeetings, setSessions);
+      writeStoredParticipantReservations(authenticatedUser.id, model);
     });
     return () => {
       isCurrent = false;
@@ -289,6 +286,7 @@ export function App() {
     if (result.status === "error") {
       return result;
     }
+    markSessionCancelled(sessionId, result.meeting);
     await Promise.all([
       refreshAdminReadModel(),
       refreshReservationReadModel(),
@@ -338,7 +336,7 @@ export function App() {
 
   return (
     <main className="min-h-[100dvh] bg-[#F7FBF4] text-[#172014]">
-      <header className="border-b border-[#DDE8D6] bg-white backdrop-blur">
+      <header className="border-b border-[#DDE8D6] bg-white/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-sm font-extrabold text-[#5F9820]">라임 공간 예약</p>
@@ -442,8 +440,8 @@ export function App() {
 }
 
 const tabClass = (active: boolean): string =>
-  `rounded-full px-4 py-2 text-sm font-extrabold transition ${
-    active ? "bg-[#77B82A] text-white" : "border border-[#DDE8D6] bg-white text-[#5B6856] hover:border-[#77B82A]"
+  `ui-button rounded-full px-4 py-2 text-sm ${
+    active ? "ui-button-primary" : "ui-button-ghost"
   }`;
 
 const getInitialPublicSpaceId = (spaces: readonly Space[]): string =>
@@ -484,6 +482,15 @@ const buildMockAdminApplications = (
       updatedAt: session.updatedAt,
     };
   });
+
+const applyParticipantReservationSnapshot = (
+  snapshot: ParticipantReservationSnapshot,
+  setMeetings: (value: readonly Meeting[]) => void,
+  setSessions: (value: readonly ReservationSession[]) => void,
+): void => {
+  setMeetings([...snapshot.meetings].sort(compareMeetings));
+  setSessions([...snapshot.sessions].sort(compareSessions));
+};
 
 const mergeMeetings = (
   primary: readonly Meeting[],

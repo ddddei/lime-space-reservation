@@ -2,7 +2,7 @@
 
 ## 1. Atmosphere & Identity
 
-블랙 배경 위에 라임 그린이 선명하게 올라오는 운영형 플랫폼이다. 신청자는 제휴공간 예약 흐름을 쉽게 따라가고, 관리자는 조건과 상태를 어두운 작업대 위에서 빠르게 판단해야 한다. 시그니처는 오프블랙 표면, 라임 그린 액센트, 대비가 높은 상태 배지다.
+블랙 배경 위에 라임 그린이 선명하게 올라오는 운영형 플랫폼이다. 신청자는 제휴공간 예약 흐름을 쉽게 따라가고, 관리자는 조건과 상태를 어두운 작업대 위에서 빠르게 판단해야 한다. 시그니처는 오프블랙 표면, Lime Platform에서 가져온 밝은 라임 액센트, 대비가 높은 상태 배지다.
 
 ## 2. Color
 
@@ -10,16 +10,16 @@
 
 | Role | Token | Light | Dark | Usage |
 |------|-------|-------|------|-------|
-| Surface/primary | --surface-primary | #F7FBF4 | #070A07 | Main background |
-| Surface/secondary | --surface-secondary | #FFFFFF | #111711 | Cards, panels |
-| Surface/elevated | --surface-elevated | #F1F8EC | #1A2419 | Modals, highlighted panels |
+| Surface/primary | --surface-primary | #F7FBF4 | #060906 | Main background |
+| Surface/secondary | --surface-secondary | #FFFFFF | #10160F | Cards, panels |
+| Surface/elevated | --surface-elevated | #F1F8EC | #182316 | Modals, highlighted panels |
 | Text/primary | --text-primary | #172014 | #F5FAF2 | Headlines, body |
 | Text/secondary | --text-secondary | #5B6856 | #B7C6B0 | Captions, hints |
 | Text/tertiary | --text-tertiary | #819078 | #7E8B78 | Disabled, muted |
 | Border/default | --border-default | #DDE8D6 | #2C3A2B | Dividers, outlines |
 | Border/subtle | --border-subtle | #EBF2E7 | #1F2A1E | Soft separations |
-| Accent/primary | --accent-primary | #77B82A | #A6F15B | CTAs, focus, active controls |
-| Accent/hover | --accent-hover | #5F9820 | #C3FF7D | Hover state |
+| Accent/primary | --accent-primary | #77B82A | #B4F147 | CTAs, focus, active controls |
+| Accent/hover | --accent-hover | #5F9820 | #D2FF79 | Hover state |
 | Status/success | --status-success | #178A46 | #49D17C | Available, approved |
 | Status/warning | --status-warning | #B76E00 | #F5B64A | Pending, caution |
 | Status/error | --status-error | #C9443E | #F27772 | Blocked, missing |
@@ -49,7 +49,7 @@
 
 ### Font Stack
 
-- Primary: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
+- Primary: "Noto Sans KR", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif
 - Mono: "SFMono-Regular", Consolas, monospace
 
 ### Rules
@@ -89,10 +89,10 @@ All spacing derives from 4px.
 ## 5. Components
 
 ### Card
-- **Structure**: bordered dark section with title, metadata, and action area.
+- **Structure**: dark elevated section with minimal border, soft shadow, title, metadata, and action area.
 - **Variants**: selectable, status, admin.
 - **Spacing**: --space-4 on mobile, --space-5 on desktop.
-- **States**: hover border accent, focus ring, disabled opacity.
+- **States**: hover lift, soft shadow increase, focus ring, disabled opacity.
 - **Accessibility**: selectable cards are buttons.
 
 ### Status Badge
@@ -105,6 +105,12 @@ All spacing derives from 4px.
 - **Structure**: label, input/control, optional help text.
 - **States**: focus ring, disabled, error.
 - **Accessibility**: every input has visible label.
+
+### Buttons
+- **Primary**: lime fill, off-black text, used for submit and active mode.
+- **Secondary**: soft lime tint, used for helpful but non-final actions.
+- **Ghost**: transparent dark surface, used for navigation, refresh, and close.
+- **Danger**: red tint, used only for cancellation/destructive actions.
 
 ## 6. Motion & Interaction
 

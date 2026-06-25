@@ -1,4 +1,5 @@
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { Camera, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { EligibilityPanel } from "./EligibilityPanel";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
@@ -184,7 +185,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
 
 function UserHero(props: UserReservationFlowProps) {
   return (
-    <section className="overflow-hidden rounded-[32px] border border-[#DDE8D6] bg-white p-6 md:p-8">
+    <section className="ui-card overflow-hidden rounded-2xl p-6 md:p-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
         <div>
           <p className="text-sm font-extrabold text-[#5F9820]">의미 있는 만남을 위한 공간</p>
@@ -195,7 +196,7 @@ function UserHero(props: UserReservationFlowProps) {
             승인된 호스트만 제휴공간을 예약할 수 있습니다. 공간을 고르고, 날짜와 시간을 잇고, 모임을 시작하세요.
           </p>
         </div>
-        <div className="rounded-[24px] border border-[#DDE8D6] bg-[#F7FBF4] p-5">
+        <div className="ui-card-soft rounded-2xl p-5">
           <p className="text-xs font-black text-[#5F9820]">현재 호스트</p>
           <h3 className="mt-2 text-2xl font-black text-[#172014]">{props.authenticatedUser.name}</h3>
           <p className="mt-2 text-sm text-[#5B6856]">
@@ -208,7 +209,7 @@ function UserHero(props: UserReservationFlowProps) {
             <span className={`rounded-full px-3 py-1 text-xs font-black ${props.eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
               {props.eligibility.canReserve ? "예약 가능" : "예약 불가"}
             </span>
-            <button type="button" onClick={props.onLogout} className="rounded-full border border-[#DDE8D6] px-3 py-1 text-xs font-bold text-[#5B6856] hover:border-[#77B82A]">
+            <button type="button" onClick={props.onLogout} className="ui-button ui-button-ghost min-h-8 rounded-full px-3 py-1 text-xs">
               다른 호스트
             </button>
           </div>
@@ -238,10 +239,10 @@ function ReservationDialog(props: ReservationDialogProps) {
       onMouseDown={props.onClose}
     >
       <div
-        className="mx-auto grid max-h-[calc(100dvh-24px)] w-full max-w-6xl overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#F7FBF4] shadow-[0_24px_80px_rgba(7,10,7,0.36)] md:max-h-[calc(100dvh-48px)]"
+        className="ui-modal-panel mx-auto grid max-h-[calc(100dvh-24px)] w-full max-w-6xl overflow-hidden rounded-2xl md:max-h-[calc(100dvh-48px)]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#DDE8D6] bg-white p-4 md:p-5">
+        <div className="flex items-start justify-between gap-4 p-4 md:p-5">
           <div>
             <p className="text-xs font-black text-[#5F9820]">예약 신청</p>
             <h2 id="reservation-dialog-title" className="mt-1 text-2xl font-black text-[#172014]">
@@ -252,9 +253,10 @@ function ReservationDialog(props: ReservationDialogProps) {
           <button
             type="button"
             onClick={props.onClose}
-            className="whitespace-nowrap rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-extrabold text-[#5B6856] transition hover:border-[#77B82A] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30"
+            className="ui-button ui-button-ghost whitespace-nowrap"
             aria-label="예약 창 닫기"
           >
+            <X size={16} strokeWidth={2.3} />
             닫기
           </button>
         </div>
@@ -284,7 +286,7 @@ function ReservationDialog(props: ReservationDialogProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </div>
-          <aside className="grid content-start gap-4 self-start xl:sticky xl:top-6">
+          <aside className="grid content-start gap-4 self-start xl:sticky xl:top-5">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -330,7 +332,7 @@ function ReservationCompleteDialog({
       onMouseDown={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]"
+        className="ui-modal-panel w-full max-w-md rounded-2xl p-5"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
@@ -352,7 +354,7 @@ function ReservationCompleteDialog({
         <button
           type="button"
           onClick={onClose}
-          className="mt-5 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30"
+          className="ui-button ui-button-primary mt-5 w-full"
         >
           확인
         </button>
@@ -381,7 +383,7 @@ function SpaceImageSlider({
   };
 
   return (
-    <section className="overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
+    <section className="overflow-hidden rounded-2xl bg-white">
       <div className="relative h-64 bg-[#070A07] md:h-80">
         {showImage ? (
           <img
@@ -407,18 +409,18 @@ function SpaceImageSlider({
               <button
                 type="button"
                 onClick={() => moveSlide(-1)}
-                className="grid h-9 w-9 place-items-center rounded-full border border-[#F5FAF2]/35 bg-[#070A07]/55 text-lg font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                className="grid h-9 w-9 place-items-center rounded-full bg-[#070A07]/55 text-[#F5FAF2] transition hover:text-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
                 aria-label="이전 사진"
               >
-                ‹
+                <ChevronLeft size={20} strokeWidth={2.4} />
               </button>
               <button
                 type="button"
                 onClick={() => moveSlide(1)}
-                className="grid h-9 w-9 place-items-center rounded-full border border-[#F5FAF2]/35 bg-[#070A07]/55 text-lg font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                className="grid h-9 w-9 place-items-center rounded-full bg-[#070A07]/55 text-[#F5FAF2] transition hover:text-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
                 aria-label="다음 사진"
               >
-                ›
+                <ChevronRight size={20} strokeWidth={2.4} />
               </button>
             </div>
           )}
@@ -426,8 +428,9 @@ function SpaceImageSlider({
             <button
               type="button"
               onClick={() => onOpenImages(space, currentIndex)}
-              className="rounded-lg border border-[#F5FAF2]/35 bg-[#070A07]/55 px-3 py-2 text-xs font-extrabold text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+              className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs text-[#F5FAF2]"
             >
+              <Camera size={15} strokeWidth={2.3} />
               사진 보기
             </button>
           )}
@@ -517,10 +520,10 @@ function ImageLightbox({
       onMouseDown={onClose}
     >
       <div
-        className="mx-auto grid h-full w-full max-w-6xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#070A07]"
+        className="mx-auto grid h-full w-full max-w-6xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-2xl bg-[#070A07]"
         onMouseDown={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center justify-between gap-3 border-b border-[#2C3A2B] p-4">
+        <div className="flex items-center justify-between gap-3 p-4">
           <div>
             <p className="text-xs font-black text-[#A6F15B]">공간 사진</p>
             <h2 id="image-lightbox-title" className="mt-1 text-xl font-black text-[#F5FAF2]">{space.name}</h2>
@@ -528,8 +531,9 @@ function ImageLightbox({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[#F5FAF2]/25 px-3 py-2 text-sm font-extrabold text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+            className="ui-button ui-button-ghost text-[#F5FAF2]"
           >
+            <X size={16} strokeWidth={2.3} />
             닫기
           </button>
         </div>
@@ -551,23 +555,23 @@ function ImageLightbox({
               <button
                 type="button"
                 onClick={() => moveSlide(-1)}
-                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#F5FAF2]/30 bg-[#070A07]/65 text-2xl font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full bg-[#070A07]/65 text-[#F5FAF2] transition hover:text-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
                 aria-label="이전 사진"
               >
-                ‹
+                <ChevronLeft size={24} strokeWidth={2.4} />
               </button>
               <button
                 type="button"
                 onClick={() => moveSlide(1)}
-                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#F5FAF2]/30 bg-[#070A07]/65 text-2xl font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full bg-[#070A07]/65 text-[#F5FAF2] transition hover:text-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
                 aria-label="다음 사진"
               >
-                ›
+                <ChevronRight size={24} strokeWidth={2.4} />
               </button>
             </div>
           )}
         </div>
-        <div className="flex items-center justify-between gap-3 border-t border-[#2C3A2B] p-4 text-sm font-bold text-[#B7C6B0]">
+        <div className="flex items-center justify-between gap-3 p-4 text-sm font-bold text-[#B7C6B0]">
           <span>{images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "이미지 준비 중"}</span>
           <span>ESC로 닫기</span>
         </div>
@@ -608,7 +612,7 @@ function getDisplayImages(space: Space): readonly SpaceImage[] {
 
 function SelectedSpaceSummary({ space }: { readonly space: Space }) {
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="rounded-2xl bg-white p-4">
       <p className="text-xs font-black text-[#5F9820]">선택한 공간</p>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>

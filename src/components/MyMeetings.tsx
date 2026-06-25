@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { CalendarClock, RefreshCw, RotateCcw, X } from "lucide-react";
 import { addBlocks, getCalendarDates, getTimeRange } from "../lib/date";
 import { getMeetingStatusLabel } from "../lib/displayLabels";
 import { validateReservationSave } from "../lib/reservationRules";
@@ -60,7 +61,7 @@ export function MyMeetings({
     .filter((item) => item.visibleSessions.length > 0 || (showCancelled && item.meeting.status === "cancelled"))
     .sort((first, second) => second.activeSessionCount - first.activeSessionCount);
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="ui-card rounded-2xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">내 신청 확인/수정</h2>
@@ -78,12 +79,13 @@ export function MyMeetings({
                 void onRefresh();
               }}
               disabled={isRefreshing}
-              className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:bg-[#F7FBF4] disabled:text-[#819078]"
+              className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs"
             >
+              <RefreshCw size={14} strokeWidth={2.3} className={isRefreshing ? "animate-spin" : undefined} />
               {isRefreshing ? "새로고침 중" : "새로고침"}
             </button>
           )}
-          <label className="flex items-center gap-2 rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856]">
+          <label className="ui-button ui-button-ghost min-h-9 cursor-pointer px-3 py-2 text-xs">
             <input
               type="checkbox"
               checked={showCancelled}
@@ -97,11 +99,14 @@ export function MyMeetings({
       <div className="mt-3 grid gap-3">
         {myMeetings.map(({ meeting, visibleSessions }) => {
           return (
-            <article key={meeting.id} className="rounded-lg border border-[#EBF2E7] p-3">
+            <article key={meeting.id} className="ui-card-soft rounded-xl p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-[#172014]">{meeting.meetingName}</h3>
-                  <p className="text-sm text-[#5B6856]">{visibleSessions.length}개 회차</p>
+                  <p className="mt-1 inline-flex items-center gap-1 text-sm text-[#5B6856]">
+                    <CalendarClock size={14} strokeWidth={2.3} />
+                    {visibleSessions.length}개 회차
+                  </p>
                 </div>
                 <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5F9820]">
                   {getMeetingStatusLabel(meeting.status)}
@@ -129,7 +134,7 @@ export function MyMeetings({
                     excludeSessionId: session.id,
                   });
                   return (
-                    <div key={session.id} className="rounded-lg bg-[#F7FBF4] p-2 text-sm">
+                    <div key={session.id} className="rounded-xl bg-[#F7FBF4] p-3 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[#172014]">
                           {meeting.meetingName} {session.sessionIndex}회차 · {space?.name ?? "공간 없음"} · {session.date} {session.startTime}-{session.endTime}
@@ -144,8 +149,9 @@ export function MyMeetings({
                                 setEditingSession({ sessionId: session.id, values: sessionToEditValues(session) });
                                 setLastSaveResult(undefined);
                               }}
-                              className="rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#5B6856] hover:border-[#77B82A]"
+                              className="ui-button ui-button-ghost min-h-8 px-2 py-1 text-xs"
                             >
+                              <RotateCcw size={13} strokeWidth={2.3} />
                               수정
                             </button>
                             <button
@@ -156,19 +162,20 @@ export function MyMeetings({
                                 setCancelError(undefined);
                                 setCancelSuccess(undefined);
                               }}
-                              className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
+                              className="ui-button ui-button-danger min-h-8 px-2 py-1 text-xs"
                             >
+                              <X size={13} strokeWidth={2.3} />
                               {cancellingSessionId === session.id ? "취소 중" : "신청 취소"}
                             </button>
                           </div>
                         )}
                       </div>
                       {isEditing && (
-                        <div className="mt-3 grid gap-2 rounded-lg border border-[#DDE8D6] bg-white p-3">
+                        <div className="mt-3 grid gap-2 rounded-xl bg-white p-3">
                           <select
                             value={editValues.spaceId}
                             onChange={(event) => setEditingSession({ sessionId: session.id, values: { ...editValues, spaceId: event.target.value } })}
-                            className="rounded-lg border border-[#DDE8D6] px-3 py-2"
+                            className="ui-input"
                             aria-label={`${session.sessionIndex}회차 공간 수정`}
                           >
                             {editableSpaces.map((item) => (
@@ -179,7 +186,7 @@ export function MyMeetings({
                             <select
                               value={editValues.date}
                               onChange={(event) => setEditingSession({ sessionId: session.id, values: { ...editValues, date: event.target.value } })}
-                              className="rounded-lg border border-[#DDE8D6] px-3 py-2"
+                              className="ui-input"
                               aria-label={`${session.sessionIndex}회차 날짜 수정`}
                             >
                               {getCalendarDates().map((date) => (
@@ -189,7 +196,7 @@ export function MyMeetings({
                             <select
                               value={editValues.startTime}
                               onChange={(event) => setEditingSession({ sessionId: session.id, values: { ...editValues, startTime: event.target.value } })}
-                              className="rounded-lg border border-[#DDE8D6] px-3 py-2"
+                              className="ui-input"
                               aria-label={`${session.sessionIndex}회차 시작 시간 수정`}
                             >
                               {getTimeRange().filter((time) => time.endsWith(":00")).map((time) => (
@@ -213,7 +220,7 @@ export function MyMeetings({
                                   setEditingSession(undefined);
                                 }
                               }}
-                              className="rounded-lg bg-[#77B82A] px-3 py-2 text-xs font-extrabold text-white hover:bg-[#5F9820] disabled:bg-[#B9C9AE]"
+                              className="ui-button ui-button-primary min-h-9 px-3 py-2 text-xs"
                             >
                               수정 저장
                             </button>
@@ -223,7 +230,7 @@ export function MyMeetings({
                                 setEditingSession(undefined);
                                 setLastSaveResult(undefined);
                               }}
-                              className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-bold text-[#5B6856]"
+                              className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs"
                             >
                               수정 취소
                             </button>
@@ -239,7 +246,7 @@ export function MyMeetings({
         })}
       </div>
       {myMeetings.length === 0 && (
-        <p className="mt-3 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-4 text-center text-sm font-semibold text-[#819078]">
+        <p className="mt-3 rounded-xl bg-[#F7FBF4] p-4 text-center text-sm font-semibold text-[#819078]">
           현재 표시할 신청 내역이 없습니다.
         </p>
       )}
@@ -313,23 +320,33 @@ function sessionToEditValues(session: ReservationSession): SessionEditValues {
 }
 
 function ConfirmCancelDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        onCancel();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onCancel]);
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
-      <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title" onMouseDown={onCancel}>
+      <div className="ui-modal-panel w-full max-w-sm rounded-2xl p-5" onMouseDown={(event) => event.stopPropagation()}>
         <h3 id="cancel-dialog-title" className="text-lg font-black text-[#172014]">이 신청을 취소하시겠습니까?</h3>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">이 신청을 취소할까요? 취소된 신청은 목록에서 숨겨지고, 담당자 화면에는 취소됨으로 표시됩니다.</p>
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
+            className="ui-button ui-button-ghost"
           >
             닫기
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
+            className="ui-button ui-button-danger"
           >
             신청 취소
           </button>

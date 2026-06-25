@@ -19,6 +19,7 @@ import {
   mapReservationSessionRows,
   mapReservationSubmissionRowsToMeeting,
   mapReservationSubmissionRowsToSessions,
+  type AdminApplicationRow,
   type SpaceImageRow,
   type SubmitReservationSessionInput,
   mapSpaceRows,
@@ -117,7 +118,45 @@ export const fetchParticipantReservationReadModel = async (
   if (supabaseClient === undefined) {
     return undefined;
   }
-  return fetchParticipantReservationsFromTables(participantId);
+  return fetchParticipantReservationsFromRpc(participantId);
+};
+
+const fetchParticipantReservationsFromRpc = async (
+  participantId: string,
+): Promise<ParticipantReservationReadModel | undefined> => {
+  if (supabaseClient === undefined) {
+    return { meetings: [], sessions: [] };
+  }
+
+  const response = await supabaseClient.rpc("get_participant_applications", {
+    input_participant_id: participantId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseReadError("get_participant_applications RPC", response.error);
+    if (response.error.code !== "PGRST202") {
+      return undefined;
+    }
+    return fetchParticipantReservationsFromTables(participantId);
+  }
+
+  return mapParticipantApplicationRows(response.data ?? []);
+};
+
+const mapParticipantApplicationRows = (
+  rows: readonly AdminApplicationRow[],
+): ParticipantReservationReadModel => {
+  const meetingById = new Map<string, Meeting>();
+  for (const row of rows) {
+    const meeting = mapReservationSubmissionRowsToMeeting([row]);
+    if (meeting !== undefined) {
+      meetingById.set(meeting.id, meeting);
+    }
+  }
+  return {
+    meetings: [...meetingById.values()],
+    sessions: mapReservationSubmissionRowsToSessions(rows),
+  };
 };
 
 const fetchParticipantReservationsFromTables = async (

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw, X } from "lucide-react";
 import { getSessionStatusLabel } from "../lib/displayLabels";
 import type { AdminApplication, ReservationSession, Space } from "../types/reservation";
 
@@ -59,7 +60,7 @@ export function AdminReservationTable({
   const visibleRows = showAll ? filteredRows : filteredRows.slice(0, defaultVisibleCount);
 
   return (
-    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="ui-card min-w-0 rounded-2xl p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">전체 신청 목록</h2>
@@ -72,15 +73,16 @@ export function AdminReservationTable({
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:bg-[#F7FBF4] disabled:text-[#819078]"
+            className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs"
           >
+            <RefreshCw size={14} strokeWidth={2.3} className={isRefreshing ? "animate-spin" : undefined} />
             {isRefreshing ? "새로고침 중" : "새로고침"}
           </button>
           {filteredRows.length > defaultVisibleCount && (
             <button
               type="button"
               onClick={() => setShowAll((current) => !current)}
-              className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A]"
+              className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs"
             >
               {showAll ? "접기" : "더보기"}
             </button>
@@ -113,7 +115,7 @@ export function AdminReservationTable({
             setShowAll(false);
           }}
           placeholder="신청자"
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm"
+          className="ui-input text-sm"
         />
         <input
           value={meetingFilter}
@@ -122,7 +124,7 @@ export function AdminReservationTable({
             setShowAll(false);
           }}
           placeholder="모임명"
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm"
+          className="ui-input text-sm"
         />
         <select
           value={spaceFilter}
@@ -130,7 +132,7 @@ export function AdminReservationTable({
             setSpaceFilter(event.target.value);
             setShowAll(false);
           }}
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm"
+          className="ui-input text-sm"
         >
           <option value="all">전체 공간</option>
           {spaces.map((space) => (
@@ -144,7 +146,7 @@ export function AdminReservationTable({
             setDateFilter(event.target.value);
             setShowAll(false);
           }}
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm"
+          className="ui-input text-sm"
         />
         <select
           value={statusFilter}
@@ -152,7 +154,7 @@ export function AdminReservationTable({
             setStatusFilter(toStatusFilter(event.target.value));
             setShowAll(false);
           }}
-          className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm"
+          className="ui-input text-sm"
         >
           {statusOptions.map((option) => (
             <option key={option.value} value={option.value}>{option.label}</option>
@@ -202,8 +204,9 @@ export function AdminReservationTable({
                         setCancelError(undefined);
                         setCancelSuccess(undefined);
                       }}
-                      className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
+                      className="ui-button ui-button-danger min-h-8 px-2 py-1 text-xs"
                     >
+                      <X size={13} strokeWidth={2.3} />
                       {isCancelling ? "취소 중" : isCancelled ? "취소됨" : "취소"}
                     </button>
                   </td>
@@ -262,9 +265,19 @@ function ConfirmCancelDialog({
   readonly onClose: () => void;
   readonly onConfirm: () => void;
 }) {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title">
-      <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title" onMouseDown={onClose}>
+      <div className="ui-modal-panel w-full max-w-sm rounded-2xl p-5" onMouseDown={(event) => event.stopPropagation()}>
         <h3 id="admin-cancel-dialog-title" className="text-lg font-black text-[#172014]">신청 취소</h3>
         <p className="mt-2 text-sm leading-6 text-[#5B6856]">
           {application.meetingName} · {application.spaceName} · {application.date} {application.startTime}-{application.endTime} 신청을 취소할까요?
@@ -273,14 +286,14 @@ function ConfirmCancelDialog({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
+            className="ui-button ui-button-ghost"
           >
             닫기
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
+            className="ui-button ui-button-danger"
           >
             신청 취소
           </button>
