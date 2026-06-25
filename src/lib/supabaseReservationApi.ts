@@ -3,20 +3,34 @@ import { initialAdmins } from "../data/mockAdmins";
 import { initialSpaces } from "../data/spaces";
 import { initialUsers } from "../data/mockUsers";
 import { findAdminByNameAndPhone, findParticipantByNameAndPhone, type AdminAuthResult, type ParticipantAuthResult } from "./participantAuth";
-import { supabaseClient } from "./supabaseClient";
+import { isSupabaseConfigured, supabaseClient } from "./supabaseClient";
 import {
   firstAdminVerificationRow,
   firstParticipantVerificationRow,
+  mapAdminApplicationRows,
   mapAdminBlockRows,
+  mapAdminParticipantRows,
   mapAdminVerificationRow,
   mapParticipantVerificationRow,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { AdminBlock, Space } from "../types/reservation";
+import type { AdminApplication, AdminBlock, Space, ParticipantUser } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
   readonly spaces: readonly Space[];
+  readonly adminBlocks: readonly AdminBlock[];
+};
+
+export type AdminCredentials = {
+  readonly name: string;
+  readonly phone: string;
+};
+
+type AdminReadModel = {
+  readonly participants: readonly ParticipantUser[];
+  readonly spaces: readonly Space[];
+  readonly applications: readonly AdminApplication[];
   readonly adminBlocks: readonly AdminBlock[];
 };
 
@@ -27,22 +41,22 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
 
   const spacesResponse = await supabaseClient
     .from("spaces")
-    .select("space_id,name,category,capacity,description,image_url,features,is_active,is_public_visible,requires_admin_unlock,parent_space_name,admin_memo,sort_order")
+    .select("space_id,name,category,capacity,description,image_url,features,is_active,is_public_visible,requires_admin_unlock,parent_space_name,admin_memo,sort_order,created_at,updated_at")
+    .eq("category", "lifestyle")
     .eq("is_active", true)
     .eq("is_public_visible", true)
     .order("sort_order", { ascending: true });
 
   if (spacesResponse.error !== null) {
-    warnSupabaseFallback("spaces 조회", spacesResponse.error);
-    return undefined;
-  }
-
-  if (spacesResponse.data.length === 0) {
-    console.warn("[Supabase fallback] spaces 조회 결과가 비어 있어 mock 데이터를 사용합니다.");
-    return undefined;
+    warnSupabaseReadError("공개 spaces 조회", spacesResponse.error);
+    return { spaces: [], adminBlocks: [] };
   }
 
   const publicSpaceIds = spacesResponse.data.map((space) => space.space_id);
+  if (publicSpaceIds.length === 0) {
+    return { spaces: [], adminBlocks: [] };
+  }
+
   const [operatingHoursResponse, adminBlocksResponse] = await Promise.all([
     supabaseClient
       .from("operating_hours")
@@ -58,13 +72,13 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
   ]);
 
   if (operatingHoursResponse.error !== null) {
-    warnSupabaseFallback("operating_hours 조회", operatingHoursResponse.error);
-    return undefined;
+    warnSupabaseReadError("operating_hours 조회", operatingHoursResponse.error);
+    return { spaces: mapSpaceRows(spacesResponse.data, []), adminBlocks: [] };
   }
 
   if (adminBlocksResponse.error !== null) {
-    warnSupabaseFallback("admin_blocks 조회", adminBlocksResponse.error);
-    return undefined;
+    warnSupabaseReadError("공개 admin_blocks 조회", adminBlocksResponse.error);
+    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data), adminBlocks: [] };
   }
 
   return {
@@ -77,6 +91,47 @@ export const getMockReservationReadModel = (): ReservationReadModel => ({
   spaces: initialSpaces,
   adminBlocks: initialAdminBlocks,
 });
+
+export const fetchAdminReadModel = async (credentials: AdminCredentials): Promise<AdminReadModel | undefined> => {
+  if (supabaseClient === undefined) {
+    return undefined;
+  }
+
+  const args = {
+    input_admin_name: credentials.name.trim(),
+    input_admin_phone: credentials.phone.trim(),
+  };
+  const [participantsResponse, spacesResponse, applicationsResponse, blocksResponse] = await Promise.all([
+    supabaseClient.rpc("get_admin_participants", args),
+    supabaseClient.rpc("get_admin_spaces", args),
+    supabaseClient.rpc("get_admin_applications", args),
+    supabaseClient.rpc("get_admin_blocks", args),
+  ]);
+
+  if (participantsResponse.error !== null) {
+    warnSupabaseReadError("get_admin_participants RPC", participantsResponse.error);
+    return emptyAdminReadModel();
+  }
+  if (spacesResponse.error !== null) {
+    warnSupabaseReadError("get_admin_spaces RPC", spacesResponse.error);
+    return emptyAdminReadModel();
+  }
+  if (applicationsResponse.error !== null) {
+    warnSupabaseReadError("get_admin_applications RPC", applicationsResponse.error);
+    return emptyAdminReadModel();
+  }
+  if (blocksResponse.error !== null) {
+    warnSupabaseReadError("get_admin_blocks RPC", blocksResponse.error);
+    return emptyAdminReadModel();
+  }
+
+  return {
+    participants: mapAdminParticipantRows(participantsResponse.data ?? []),
+    spaces: mapSpaceRows(spacesResponse.data ?? [], []),
+    applications: mapAdminApplicationRows(applicationsResponse.data ?? []),
+    adminBlocks: mapAdminBlockRows(blocksResponse.data ?? []),
+  };
+};
 
 export const verifyParticipantLogin = async (
   name: string,
@@ -92,8 +147,11 @@ export const verifyParticipantLogin = async (
   });
 
   if (response.error !== null) {
-    warnSupabaseFallback("verify_participant RPC", response.error);
-    return findParticipantByNameAndPhone(name, phone, initialUsers);
+    warnSupabaseAuthError("verify_participant RPC", response.error);
+    return {
+      status: "not_found",
+      message: "예약 대상자로 확인되지 않습니다. 관리자에게 문의해 주세요.",
+    };
   }
 
   const row = firstParticipantVerificationRow(response.data);
@@ -125,8 +183,11 @@ export const verifyAdminLogin = async (
   });
 
   if (response.error !== null) {
-    warnSupabaseFallback("verify_admin RPC", response.error);
-    return findAdminByNameAndPhone(name, phone, initialAdmins);
+    warnSupabaseAuthError("verify_admin RPC", response.error);
+    return {
+      status: "not_found",
+      message: "관리자 권한을 확인할 수 없습니다.",
+    };
   }
 
   const row = firstAdminVerificationRow(response.data);
@@ -144,8 +205,24 @@ export const verifyAdminLogin = async (
   };
 };
 
-const warnSupabaseFallback = (label: string, error: PostgrestError): void => {
-  console.warn(`[Supabase fallback] ${label} 실패로 mock 데이터를 사용합니다.`, {
+export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
+
+const emptyAdminReadModel = (): AdminReadModel => ({
+  participants: [],
+  spaces: [],
+  applications: [],
+  adminBlocks: [],
+});
+
+const warnSupabaseReadError = (label: string, error: PostgrestError): void => {
+  console.warn(`[Supabase] ${label} 실패. Supabase 연결 상태에서는 mock fallback을 사용하지 않습니다.`, {
+    message: error.message,
+    details: error.details,
+  });
+};
+
+const warnSupabaseAuthError = (label: string, error: PostgrestError): void => {
+  console.warn(`[Supabase auth] ${label} 실패. 로그인 실패로 처리합니다.`, {
     message: error.message,
     details: error.details,
   });

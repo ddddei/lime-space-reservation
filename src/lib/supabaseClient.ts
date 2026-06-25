@@ -1,6 +1,8 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AdminApplicationRow,
   AdminBlockRow,
+  AdminParticipantRow,
   AdminVerificationRow,
   OperatingHourRow,
   ParticipantVerificationRow,
@@ -44,6 +46,41 @@ type ReservationDatabase = {
           readonly input_phone: string;
         };
         readonly Returns: AdminVerificationRow | AdminVerificationRow[] | null;
+      };
+      readonly is_valid_admin: {
+        readonly Args: {
+          readonly input_name: string;
+          readonly input_phone: string;
+        };
+        readonly Returns: boolean | readonly { readonly is_valid: boolean }[] | null;
+      };
+      readonly get_admin_participants: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+        };
+        readonly Returns: AdminParticipantRow[];
+      };
+      readonly get_admin_spaces: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+        };
+        readonly Returns: SpaceRow[];
+      };
+      readonly get_admin_applications: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+        };
+        readonly Returns: AdminApplicationRow[];
+      };
+      readonly get_admin_blocks: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+        };
+        readonly Returns: AdminBlockRow[];
       };
     };
     readonly Enums: Record<string, never>;

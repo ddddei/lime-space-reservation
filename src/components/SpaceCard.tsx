@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import type { Space } from "../types/reservation";
 
@@ -8,6 +9,9 @@ type SpaceCardProps = {
 };
 
 export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
+  const [failedImageUrl, setFailedImageUrl] = useState<string | undefined>();
+  const hasImage = space.imageUrl.trim().length > 0 && failedImageUrl !== space.imageUrl;
+
   return (
     <button
       type="button"
@@ -17,7 +21,24 @@ export function SpaceCard({ space, isSelected, onSelect }: SpaceCardProps) {
       }`}
     >
       <div className="relative">
-        <img src={space.imageUrl} alt={`${space.name} 사진`} className="h-48 w-full object-cover transition duration-300 group-hover:scale-[1.03]" width="360" height="192" />
+        {hasImage ? (
+          <img
+            src={space.imageUrl}
+            alt={`${space.name} 사진`}
+            className="h-48 w-full object-cover transition duration-300 group-hover:scale-[1.03]"
+            width="360"
+            height="192"
+            onError={() => setFailedImageUrl(space.imageUrl)}
+          />
+        ) : (
+          <div className="grid h-48 w-full place-items-center bg-[linear-gradient(135deg,#070A07,#1A2419_52%,#2C3A2B)] px-5 text-center">
+            <div>
+              <p className="text-xs font-black text-[#A6F15B]">LIME SPACE</p>
+              <p className="mt-2 text-lg font-black text-[#F5FAF2]">{space.name}</p>
+              <p className="mt-1 text-sm font-semibold text-[#B7C6B0]">이미지 준비 중</p>
+            </div>
+          </div>
+        )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#070A07]/90 to-transparent p-4">
           <span className="rounded-full bg-[#77B82A] px-2 py-1 text-[11px] font-black text-white">
             {isSelected ? "선택됨" : `${space.capacity}명`}

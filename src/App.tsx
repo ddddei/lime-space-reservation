@@ -13,22 +13,26 @@ import {
   buildEligibility,
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
-import { fetchReservationReadModel } from "./lib/supabaseReservationApi";
+import { canUseMockFallback, fetchAdminReadModel, fetchReservationReadModel } from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
-import type { Admin, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
+import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
 
 type AppMode = "user" | "admin";
 
 export function App() {
   const [mode, setMode] = useState<AppMode>("user");
-  const [spaces, setSpaces] = useState<readonly Space[]>(initialSpaces);
-  const [users, setUsers] = useState<readonly ParticipantUser[]>(initialUsers);
-  const [meetings, setMeetings] = useState<readonly Meeting[]>(initialMeetings);
-  const [sessions, setSessions] = useState<readonly ReservationSession[]>(initialSessions);
-  const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(initialAdminBlocks);
+  const allowMockFallback = canUseMockFallback();
+  const [publicSpaces, setPublicSpaces] = useState<readonly Space[]>(allowMockFallback ? getPublicSpaces(initialSpaces) : []);
+  const [adminSpaces, setAdminSpaces] = useState<readonly Space[]>(allowMockFallback ? initialSpaces : []);
+  const [adminUsers, setAdminUsers] = useState<readonly ParticipantUser[]>(allowMockFallback ? initialUsers : []);
+  const [meetings, setMeetings] = useState<readonly Meeting[]>(allowMockFallback ? initialMeetings : []);
+  const [sessions, setSessions] = useState<readonly ReservationSession[]>(allowMockFallback ? initialSessions : []);
+  const [publicAdminBlocks, setPublicAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
+  const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
+  const [adminApplications, setAdminApplications] = useState<readonly AdminApplication[]>([]);
   const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>();
   const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>();
-  const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(initialSpaces));
+  const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
@@ -39,8 +43,8 @@ export function App() {
       if (!isCurrent || model === undefined) {
         return;
       }
-      setSpaces(model.spaces);
-      setAdminBlocks(model.adminBlocks);
+      setPublicSpaces(model.spaces);
+      setPublicAdminBlocks(model.adminBlocks);
       setSelectedSpaceId(getInitialPublicSpaceId(model.spaces));
     });
     return () => {
@@ -48,7 +52,29 @@ export function App() {
     };
   }, []);
 
-  const selectedSpace = spaces.find((space) => space.id === selectedSpaceId) ?? spaces.find((space) => space.isActive && space.isPublicVisible) ?? spaces[0];
+  useEffect(() => {
+    if (authenticatedAdmin === undefined) {
+      return;
+    }
+    let isCurrent = true;
+    void fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }).then((model) => {
+      if (!isCurrent || model === undefined) {
+        return;
+      }
+      setAdminUsers(model.participants);
+      setAdminSpaces(model.spaces);
+      setAdminApplications(model.applications);
+      setAdminBlocks(model.adminBlocks);
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [authenticatedAdmin]);
+
+  const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
+  const effectiveAdminApplications = allowMockFallback
+    ? buildMockAdminApplications(meetings, sessions, adminSpaces)
+    : adminApplications;
   const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
@@ -59,6 +85,8 @@ export function App() {
   const saveValidation = useMemo(
     () => authenticatedUser === undefined
       ? undefined
+      : selectedSpace === undefined
+        ? { canSave: false, reasons: ["예약 가능한 공간이 없습니다."] }
       : selectedRange === undefined
         ? { canSave: false, reasons: ["시간을 선택해 주세요."] }
       : validateCurrentSelection({
@@ -71,14 +99,10 @@ export function App() {
           purpose: "",
           meetings,
           sessions,
-          adminBlocks,
+          adminBlocks: publicAdminBlocks,
         }),
-    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, meetings, sessions, adminBlocks],
+    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, meetings, sessions, publicAdminBlocks],
   );
-
-  if (selectedSpace === undefined) {
-    return <main className="p-6 text-[#172014]">초기 데이터를 확인해주세요.</main>;
-  }
 
   return (
     <main className="min-h-[100dvh] bg-[#F7FBF4] text-[#172014]">
@@ -101,7 +125,7 @@ export function App() {
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8">
         {mode === "user" && authenticatedUser === undefined ? (
           <ParticipantLogin onAuthenticated={setAuthenticatedUser} />
-        ) : mode === "user" && eligibility !== undefined && saveValidation !== undefined && authenticatedUser !== undefined ? (
+        ) : mode === "user" && selectedSpace !== undefined && eligibility !== undefined && saveValidation !== undefined && authenticatedUser !== undefined ? (
           <UserReservationFlow
             authenticatedUser={authenticatedUser}
             eligibility={eligibility}
@@ -113,8 +137,8 @@ export function App() {
             meetingName={meetingName}
             meetings={meetings}
             sessions={sessions}
-            spaces={spaces}
-            adminBlocks={adminBlocks}
+            spaces={publicSpaces}
+            adminBlocks={publicAdminBlocks}
             setMeetings={setMeetings}
             setSessions={setSessions}
             onSelectSpace={setSelectedSpaceId}
@@ -123,20 +147,32 @@ export function App() {
             onMeetingNameChange={setMeetingName}
             onLogout={() => setAuthenticatedUser(undefined)}
           />
+        ) : mode === "user" ? (
+          <section className="rounded-lg border border-[#DDE8D6] bg-white p-6 text-sm font-semibold text-[#5B6856]">
+            표시할 수 있는 생활지향형 제휴공간이 없습니다.
+          </section>
         ) : authenticatedAdmin === undefined ? (
           <AdminLogin onAuthenticated={setAuthenticatedAdmin} />
         ) : (
           <div className="grid gap-4">
-            <AdminSummary admin={authenticatedAdmin} onLogout={() => setAuthenticatedAdmin(undefined)} />
+            <AdminSummary admin={authenticatedAdmin} onLogout={() => {
+              setAuthenticatedAdmin(undefined);
+              setAdminApplications([]);
+              if (!allowMockFallback) {
+                setAdminUsers([]);
+                setAdminSpaces([]);
+                setAdminBlocks([]);
+              }
+            }} />
             <AdminPage
-              users={users}
-              meetings={meetings}
-              sessions={sessions}
-              spaces={spaces}
+              users={adminUsers}
+              applications={effectiveAdminApplications}
+              spaces={adminSpaces}
               adminBlocks={adminBlocks}
-              onUpdateUser={(updatedUser) => setUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
-              onUpdateSpace={(updatedSpace) => setSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
-              onAddSpace={(space) => setSpaces((current) => [...current, space])}
+              readOnly={!allowMockFallback}
+              onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
+              onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
+              onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
               onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
               onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
             />
@@ -153,4 +189,40 @@ const tabClass = (active: boolean): string =>
   }`;
 
 const getInitialPublicSpaceId = (spaces: readonly Space[]): string =>
-  spaces.find((space) => space.isActive && space.isPublicVisible)?.id ?? spaces[0]?.id ?? "";
+  getPublicSpaces(spaces)[0]?.id ?? "";
+
+const getPublicSpaces = (spaces: readonly Space[]): readonly Space[] =>
+  spaces
+    .filter((space) => space.category === "lifestyle" && space.isActive && space.isPublicVisible)
+    .sort((first, second) => first.sortOrder - second.sortOrder);
+
+const buildMockAdminApplications = (
+  meetings: readonly Meeting[],
+  sessions: readonly ReservationSession[],
+  spaces: readonly Space[],
+): readonly AdminApplication[] =>
+  sessions.map((session) => {
+    const meeting = meetings.find((item) => item.id === session.meetingId);
+    const space = spaces.find((item) => item.id === session.spaceId);
+    return {
+      meetingId: session.meetingId,
+      sessionId: session.id,
+      applicantParticipantId: meeting?.applicantUserId ?? "",
+      applicantName: meeting?.applicantName ?? "신청자 없음",
+      phoneLast4: meeting?.phoneLast4 ?? "",
+      level: meeting?.level ?? 2,
+      meetingName: meeting?.meetingName ?? "모임 없음",
+      purpose: meeting?.purpose ?? "",
+      meetingStatus: meeting?.status ?? "draft",
+      sessionIndex: session.sessionIndex,
+      spaceId: session.spaceId,
+      spaceName: space?.name ?? "공간 없음",
+      date: session.date,
+      startTime: session.startTime,
+      endTime: session.endTime,
+      blockCount: session.blockCount,
+      sessionStatus: session.status,
+      createdAt: session.createdAt,
+      updatedAt: session.updatedAt,
+    };
+  });

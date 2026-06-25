@@ -1,18 +1,17 @@
 import { useState } from "react";
 import { LEVEL_MAX_BLOCKS } from "../data/settings";
-import { getEligibility } from "../lib/reservationRules";
-import type { Meeting, ParticipantUser, ReservationSession, UserLevel } from "../types/reservation";
+import type { AdminApplication, ParticipantUser, UserLevel } from "../types/reservation";
 
 type AdminUserChecklistProps = {
   readonly users: readonly ParticipantUser[];
-  readonly meetings: readonly Meeting[];
-  readonly sessions: readonly ReservationSession[];
+  readonly applications: readonly AdminApplication[];
+  readonly readOnly: boolean;
   readonly onUpdateUser: (user: ParticipantUser) => void;
 };
 
 const defaultVisibleCount = 6;
 
-export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: AdminUserChecklistProps) {
+export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser }: AdminUserChecklistProps) {
   const [showAll, setShowAll] = useState(false);
   const visibleUsers = showAll ? users : users.slice(0, defaultVisibleCount);
 
@@ -50,33 +49,38 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
           </thead>
           <tbody>
             {visibleUsers.map((user) => {
-              const eligibility = getEligibility(user, { meetings, sessions });
+              const usedBlocks = applications
+                .filter((application) => application.applicantParticipantId === user.id && application.sessionStatus !== "cancelled")
+                .reduce((total, application) => total + application.blockCount, 0);
+              const canReserve = user.isActive && user.hasAdminApproval && usedBlocks < user.maxBlocks;
               return (
                 <tr key={user.id} className="border-b border-[#EBF2E7]">
                   <td className="py-2 pr-3 font-bold text-[#172014]">
                     {user.name}
-                    <span className="block text-xs font-medium text-[#819078]">{user.phone}</span>
+                    <span className="block text-xs font-medium text-[#819078]">끝자리 {user.phoneLast4}</span>
                   </td>
                   <td className="px-3">
                     <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
                       <input
                         type="checkbox"
                         checked={user.isActive}
+                        disabled={readOnly}
                         onChange={() => onUpdateUser({ ...user, isActive: !user.isActive })}
                         className="h-4 w-4 accent-[#77B82A]"
                         aria-label={`${user.name} 활성`}
                       />
-                      {user.isActive ? "활성" : "비활성"}
+                      {user.isActive ? "활성" : "대기"}
                     </label>
                   </td>
                   <td className="px-3">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
-                      {eligibility.canReserve ? "가능" : "불가"}
+                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FFF6E3] text-[#B76E00]"}`}>
+                      {canReserve ? "가능" : user.isActive ? "불가" : "대기"}
                     </span>
                   </td>
                   <td className="px-3">
                     <select
                       value={user.level}
+                      disabled={readOnly}
                       onChange={(event) => updateLevel(user, Number(event.target.value), onUpdateUser)}
                       className="rounded border border-[#DDE8D6] px-2 py-1"
                     >
@@ -85,7 +89,7 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
                     </select>
                   </td>
                   <td className="px-3 text-[#5B6856]">
-                    {eligibility.usedBlocks / 2}/{user.maxBlocks / 2}시간
+                    {usedBlocks / 2}/{user.maxBlocks / 2}시간
                   </td>
                   <td className="max-w-[220px] px-3 text-xs text-[#5B6856]">
                     {getDocumentSummary(user)}
@@ -111,11 +115,11 @@ function updateLevel(user: ParticipantUser, value: number, onUpdateUser: (user: 
 }
 
 function getDocumentSummary(user: ParticipantUser): string {
-  const checked = [
-    user.hasPlan ? "기획안" : undefined,
-    user.hasBudget ? "예산안" : undefined,
-    user.hasPromotion ? "홍보물" : undefined,
-    user.hasAdminApproval ? "승인" : undefined,
+  const missing = [
+    user.hasPlan ? undefined : "기획안",
+    user.hasBudget ? undefined : "예산안",
+    user.hasPromotion ? undefined : "홍보물",
+    user.hasAdminApproval ? undefined : "관리자 승인",
   ].filter((item): item is string => item !== undefined);
-  return checked.length === 0 ? "확인 전" : checked.join(", ");
+  return missing.length === 0 ? "전체 확인" : `대기: ${missing.join(", ")}`;
 }

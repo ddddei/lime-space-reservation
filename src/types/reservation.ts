@@ -34,6 +34,8 @@ export type Space = {
   readonly parentSpaceName?: string;
   readonly adminMemo?: string;
   readonly sortOrder: number;
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
 };
 
 export type ParticipantUser = {
@@ -49,6 +51,30 @@ export type ParticipantUser = {
   readonly maxBlocks: number;
   readonly memo: string;
   readonly isActive: boolean;
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
+};
+
+export type AdminApplication = {
+  readonly meetingId: string;
+  readonly sessionId: string;
+  readonly applicantParticipantId: string;
+  readonly applicantName: string;
+  readonly phoneLast4: string;
+  readonly level: UserLevel;
+  readonly meetingName: string;
+  readonly purpose: string;
+  readonly meetingStatus: MeetingStatus;
+  readonly sessionIndex: number;
+  readonly spaceId: string;
+  readonly spaceName: string;
+  readonly date: string;
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly blockCount: number;
+  readonly sessionStatus: SessionStatus;
+  readonly createdAt: string;
+  readonly updatedAt: string;
 };
 
 export type Meeting = {
@@ -81,6 +107,7 @@ export type ReservationSession = {
 export type AdminBlock = {
   readonly id: string;
   readonly spaceId: string;
+  readonly spaceName?: string;
   readonly date: string;
   readonly startTime: string;
   readonly endTime: string;
