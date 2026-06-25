@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { EligibilityPanel } from "./EligibilityPanel";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
@@ -49,19 +49,29 @@ type UserReservationFlowProps = {
   readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
   readonly onMeetingNameChange: (value: string) => void;
   readonly onLogout: () => void;
+  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
+};
+
+type CompletedApplication = {
+  readonly meetingName: string;
+  readonly applicantName: string;
+  readonly spaceName: string;
+  readonly date: string;
+  readonly startTime: string;
+  readonly endTime: string;
 };
 
 export function UserReservationFlow(props: UserReservationFlowProps) {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>();
-  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<readonly [string, string] | undefined>();
+  const [completedApplication, setCompletedApplication] = useState<CompletedApplication | undefined>();
+  const myMeetingsSectionRef = useRef<HTMLDivElement>(null);
 
   const openReservation = (spaceId: string): void => {
     props.onSelectSpace(spaceId);
     props.onChangeSelectedBlockTimes([]);
     setSubmitError(undefined);
-    setSubmitSuccessMessage(undefined);
     setIsReservationOpen(true);
   };
 
@@ -86,29 +96,28 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       props.setMeetings((current) => [meeting, ...current]);
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
-    setSubmitSuccessMessage(RESERVATION_SUBMIT_SUCCESS_MESSAGE);
+    const firstSession = outcome.sessions[0];
+    setCompletedApplication({
+      meetingName: outcome.meeting?.meetingName ?? props.meetingName,
+      applicantName: props.authenticatedUser.name,
+      spaceName: props.selectedSpace.name,
+      date: firstSession?.date ?? props.selectedDate,
+      startTime: firstSession?.startTime ?? props.selectedRange?.startTime ?? "",
+      endTime: firstSession?.endTime ?? props.selectedRange?.endTime ?? "",
+    });
     setIsReservationOpen(false);
   };
 
   return (
     <div className="grid gap-8">
       <UserHero {...props} />
-      {submitSuccessMessage !== undefined && (
-        <div
-          role="status"
-          className="rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-4 text-sm font-bold text-[#178A46]"
-        >
-          <p>{submitSuccessMessage[0]}</p>
-          <p className="mt-1 font-semibold text-[#5F9820]">{submitSuccessMessage[1]}</p>
-        </div>
-      )}
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="grid gap-8">
           <StepFrame title="공간 선택" description="카드를 누르면 예약 창이 열립니다.">
             <SpaceLanding spaces={props.spaces} selectedSpaceId={props.selectedSpace.id} onSelectSpace={openReservation} />
           </StepFrame>
         </div>
-        <aside className="grid content-start gap-5 xl:sticky xl:top-6">
+        <aside ref={myMeetingsSectionRef} className="grid content-start gap-5 xl:sticky xl:top-6 xl:self-start">
           <EligibilityPanel eligibility={props.eligibility} user={props.authenticatedUser} />
           <MyMeetings
             userId={props.authenticatedUser.id}
@@ -132,7 +141,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
               }
               return result.validation;
             }}
-            onCancelSession={(sessionId) => props.setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
+            onCancelMeeting={props.onCancelMeeting}
           />
         </aside>
       </div>
@@ -147,6 +156,82 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
           }}
         />
       )}
+      {completedApplication !== undefined && (
+        <ReservationSuccessModal
+          application={completedApplication}
+          onViewMyMeetings={() => {
+            setCompletedApplication(undefined);
+            myMeetingsSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+          onViewOtherSpaces={() => setCompletedApplication(undefined)}
+          onClose={() => setCompletedApplication(undefined)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ReservationSuccessModal(props: {
+  readonly application: CompletedApplication;
+  readonly onViewMyMeetings: () => void;
+  readonly onViewOtherSpaces: () => void;
+  readonly onClose: () => void;
+}) {
+  const { application } = props;
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reservation-success-title"
+    >
+      <div className="w-full max-w-md rounded-[24px] border border-[#DDE8D6] bg-white p-6 shadow-[0_24px_80px_rgba(7,10,7,0.36)]">
+        <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
+        <h2 id="reservation-success-title" className="mt-2 text-2xl font-black text-[#172014]">
+          {RESERVATION_SUBMIT_SUCCESS_MESSAGE[0]}
+        </h2>
+        <p className="mt-2 text-sm font-semibold text-[#5B6856]">{RESERVATION_SUBMIT_SUCCESS_MESSAGE[1]}</p>
+        <dl className="mt-5 grid gap-2 rounded-lg bg-[#F7FBF4] p-4 text-sm">
+          <SummaryRow label="모임명" value={application.meetingName} />
+          <SummaryRow label="신청자" value={application.applicantName} />
+          <SummaryRow label="공간명" value={application.spaceName} />
+          <SummaryRow label="날짜" value={application.date} />
+          <SummaryRow label="시간" value={`${application.startTime}-${application.endTime}`} />
+          <SummaryRow label="상태" value="신청 접수" />
+        </dl>
+        <div className="mt-6 grid gap-2 sm:grid-cols-3">
+          <button
+            type="button"
+            onClick={props.onViewMyMeetings}
+            className="rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30"
+          >
+            내 신청 확인
+          </button>
+          <button
+            type="button"
+            onClick={props.onViewOtherSpaces}
+            className="rounded-lg border border-[#DDE8D6] px-4 py-3 text-sm font-extrabold text-[#5B6856] transition hover:border-[#77B82A]"
+          >
+            다른 공간 보기
+          </button>
+          <button
+            type="button"
+            onClick={props.onClose}
+            className="rounded-lg border border-[#DDE8D6] px-4 py-3 text-sm font-extrabold text-[#5B6856] transition hover:border-[#77B82A]"
+          >
+            닫기
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <dt className="font-bold text-[#819078]">{label}</dt>
+      <dd className="font-bold text-[#172014]">{value}</dd>
     </div>
   );
 }

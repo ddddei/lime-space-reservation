@@ -7,6 +7,7 @@ import { isSupabaseConfigured, supabaseClient } from "./supabaseClient";
 import {
   firstAdminParticipantRow,
   firstAdminVerificationRow,
+  firstCancelReservationRow,
   firstParticipantVerificationRow,
   mapAdminApplicationRows,
   mapAdminBlockRows,
@@ -306,6 +307,51 @@ export const submitReservationApplication = async (
     status: "ok",
     meeting,
     sessions: mapReservationSubmissionRowsToSessions(rows),
+  };
+};
+
+export type CancelReservationActor =
+  | { readonly type: "participant"; readonly name: string; readonly phone: string }
+  | { readonly type: "admin"; readonly name: string; readonly phone: string };
+
+export type CancelReservationResult =
+  | { readonly status: "ok"; readonly meetingId: string; readonly cancelledSessionCount: number }
+  | { readonly status: "error"; readonly message: string };
+
+const RESERVATION_CANCEL_GENERIC_FAILURE_MESSAGE = "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+
+export const cancelReservationApplication = async (
+  meetingId: string,
+  actor: CancelReservationActor,
+): Promise<CancelReservationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("cancel_reservation_application", {
+    input_meeting_id: meetingId,
+    input_actor_type: actor.type,
+    input_actor_name: actor.name.trim(),
+    input_actor_phone: actor.phone.trim(),
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("cancel_reservation_application RPC", response.error);
+    if (response.error.code === "P0001" && response.error.message.trim().length > 0) {
+      return { status: "error", message: response.error.message };
+    }
+    return { status: "error", message: RESERVATION_CANCEL_GENERIC_FAILURE_MESSAGE };
+  }
+
+  const row = firstCancelReservationRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: RESERVATION_CANCEL_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return {
+    status: "ok",
+    meetingId: row.meeting_id,
+    cancelledSessionCount: row.cancelled_session_count ?? 0,
   };
 };
 

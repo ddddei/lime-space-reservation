@@ -330,6 +330,21 @@ export const firstAdminParticipantRow = (
   return data ?? undefined;
 };
 
+export type CancelReservationRow = {
+  readonly meeting_id: string;
+  readonly meeting_status: string | null;
+  readonly cancelled_session_count: number | null;
+};
+
+export const firstCancelReservationRow = (
+  data: CancelReservationRow | CancelReservationRow[] | null,
+): CancelReservationRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
 const mapOperatingHourRow = (row: OperatingHourRow): OperatingHour => ({
   dayOfWeek: row.day_of_week,
   openTime: row.open_time,
@@ -366,7 +381,7 @@ const mapUserLevel = (level: number | null): UserLevel => level === 1 ? 1 : 2;
 const getPhoneLast4 = (phone: string): string => phone.replace(/\D/g, "").slice(-4);
 
 const mapMeetingStatus = (status: string | null): MeetingStatus => {
-  if (status === "submitted" || status === "approved" || status === "rejected") {
+  if (status === "submitted" || status === "approved" || status === "rejected" || status === "cancelled") {
     return status;
   }
   return "draft";
