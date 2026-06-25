@@ -10,16 +10,6 @@ type AdminUserChecklistProps = {
   readonly onUpdateUser: (user: ParticipantUser) => void;
 };
 
-type BooleanKey = "hasPlan" | "hasBudget" | "hasPromotion" | "hasAdminApproval" | "isActive";
-
-const checklistFields: readonly { readonly key: BooleanKey; readonly label: string }[] = [
-  { key: "hasPlan", label: "기획안" },
-  { key: "hasBudget", label: "예산안" },
-  { key: "hasPromotion", label: "홍보물" },
-  { key: "hasAdminApproval", label: "승인" },
-  { key: "isActive", label: "활성" },
-];
-
 const defaultVisibleCount = 6;
 
 export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: AdminUserChecklistProps) {
@@ -32,7 +22,7 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
         <div>
           <h2 className="text-lg font-bold text-[#172014]">참여자 체크리스트</h2>
           <p className="mt-1 text-xs font-semibold text-[#819078]">
-            전체 {users.length}명 중 {visibleUsers.length}명 표시
+            활성 상태를 기준으로 예약 가능 여부를 판단합니다. 전체 {users.length}명 중 {visibleUsers.length}명 표시
           </p>
         </div>
         {users.length > defaultVisibleCount && (
@@ -46,17 +36,16 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
         )}
       </div>
       <div className="mt-3 overflow-x-auto">
-        <table className="min-w-[940px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[760px] w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-[#DDE8D6] text-xs text-[#5B6856]">
               <th className="py-2 pr-3">참여자</th>
-              <th className="px-3">Level</th>
-              {checklistFields.map((field) => (
-                <th key={field.key} className="px-3">{field.label}</th>
-              ))}
+              <th className="px-3">활성</th>
               <th className="px-3">예약 가능</th>
-              <th className="px-3">불가 사유</th>
-              <th className="px-3">블록</th>
+              <th className="px-3">Level</th>
+              <th className="px-3">사용 시간</th>
+              <th className="px-3">자료 확인</th>
+              <th className="px-3">메모</th>
             </tr>
           </thead>
           <tbody>
@@ -69,6 +58,23 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
                     <span className="block text-xs font-medium text-[#819078]">{user.phone}</span>
                   </td>
                   <td className="px-3">
+                    <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
+                      <input
+                        type="checkbox"
+                        checked={user.isActive}
+                        onChange={() => onUpdateUser({ ...user, isActive: !user.isActive })}
+                        className="h-4 w-4 accent-[#77B82A]"
+                        aria-label={`${user.name} 활성`}
+                      />
+                      {user.isActive ? "활성" : "비활성"}
+                    </label>
+                  </td>
+                  <td className="px-3">
+                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
+                      {eligibility.canReserve ? "가능" : "불가"}
+                    </span>
+                  </td>
+                  <td className="px-3">
                     <select
                       value={user.level}
                       onChange={(event) => updateLevel(user, Number(event.target.value), onUpdateUser)}
@@ -78,31 +84,14 @@ export function AdminUserChecklist({ users, meetings, sessions, onUpdateUser }: 
                       <option value={2}>Level 2</option>
                     </select>
                   </td>
-                  {checklistFields.map((field) => (
-                    <td key={field.key} className="px-3">
-                      <input
-                        type="checkbox"
-                        checked={user[field.key]}
-                        onChange={() => onUpdateUser({ ...user, [field.key]: !user[field.key] })}
-                        className="h-4 w-4 accent-[#77B82A]"
-                        aria-label={`${user.name} ${field.label}`}
-                      />
-                    </td>
-                  ))}
-                  <td className="px-3">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${eligibility.canReserve ? "bg-[#E8F5DE] text-[#178A46]" : "bg-[#FCEBEA] text-[#C9443E]"}`}>
-                      {eligibility.canReserve ? "가능" : "불가"}
-                    </span>
-                  </td>
-                  <td className="max-w-[240px] px-3 text-xs text-[#C9443E]">
-                    {eligibility.missingRequirements.length === 0 ? (
-                      <span className="text-[#819078]">없음</span>
-                    ) : (
-                      eligibility.missingRequirements.join(", ")
-                    )}
-                  </td>
                   <td className="px-3 text-[#5B6856]">
-                    {eligibility.usedBlocks}/{user.maxBlocks}
+                    {eligibility.usedBlocks / 2}/{user.maxBlocks / 2}시간
+                  </td>
+                  <td className="max-w-[220px] px-3 text-xs text-[#5B6856]">
+                    {getDocumentSummary(user)}
+                  </td>
+                  <td className="max-w-[220px] px-3 text-xs text-[#819078]">
+                    {user.memo.length > 0 ? user.memo : "없음"}
                   </td>
                 </tr>
               );
@@ -119,4 +108,14 @@ function updateLevel(user: ParticipantUser, value: number, onUpdateUser: (user: 
     const level: UserLevel = value;
     onUpdateUser({ ...user, level, maxBlocks: LEVEL_MAX_BLOCKS[level] });
   }
+}
+
+function getDocumentSummary(user: ParticipantUser): string {
+  const checked = [
+    user.hasPlan ? "기획안" : undefined,
+    user.hasBudget ? "예산안" : undefined,
+    user.hasPromotion ? "홍보물" : undefined,
+    user.hasAdminApproval ? "승인" : undefined,
+  ].filter((item): item is string => item !== undefined);
+  return checked.length === 0 ? "확인 전" : checked.join(", ");
 }

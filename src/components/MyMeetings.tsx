@@ -28,6 +28,7 @@ type EditingSession = {
 
 export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, user, onUpdateSession, onCancelSession }: MyMeetingsProps) {
   const [editingSession, setEditingSession] = useState<EditingSession | undefined>();
+  const [pendingCancelSessionId, setPendingCancelSessionId] = useState<string | undefined>();
   const [lastSaveResult, setLastSaveResult] = useState<SaveValidationResult | undefined>();
   const myMeetings = meetings.filter((meeting) => meeting.applicantUserId === userId);
   return (
@@ -41,7 +42,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-[#172014]">{meeting.meetingName}</h3>
-                  <p className="text-sm text-[#5B6856]">{meeting.purpose}</p>
+                  <p className="text-sm text-[#5B6856]">{meetingSessions.length}개 회차</p>
                 </div>
                 <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5F9820]">
                   {getMeetingStatusLabel(meeting.status)}
@@ -71,7 +72,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                     <div key={session.id} className="rounded-lg bg-[#F7FBF4] p-2 text-sm">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-[#172014]">
-                          {session.sessionIndex}회차 · {space?.name ?? "공간 없음"} · {session.date} {session.startTime}-{session.endTime}
+                          {meeting.meetingName} {session.sessionIndex}회차 · {space?.name ?? "공간 없음"} · {session.date} {session.startTime}-{session.endTime}
                         </span>
                         <div className="flex gap-2">
                           <button
@@ -86,7 +87,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                           </button>
                           <button
                             type="button"
-                            onClick={() => onCancelSession(session.id)}
+                            onClick={() => setPendingCancelSessionId(session.id)}
                             className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
                           >
                             삭제
@@ -122,7 +123,7 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                               className="rounded-lg border border-[#DDE8D6] px-3 py-2"
                               aria-label={`${session.sessionIndex}회차 시작 시간 수정`}
                             >
-                              {getTimeRange().map((time) => (
+                              {getTimeRange().filter((time) => time.endsWith(":00")).map((time) => (
                                 <option key={time} value={time}>{time}</option>
                               ))}
                             </select>
@@ -168,6 +169,15 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
           );
         })}
       </div>
+      {pendingCancelSessionId !== undefined && (
+        <ConfirmDeleteDialog
+          onCancel={() => setPendingCancelSessionId(undefined)}
+          onConfirm={() => {
+            onCancelSession(pendingCancelSessionId);
+            setPendingCancelSessionId(undefined);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -178,6 +188,33 @@ function sessionToEditValues(session: ReservationSession): SessionEditValues {
     date: session.date,
     startTime: session.startTime,
   };
+}
+
+function ConfirmDeleteDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+      <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+        <h3 id="delete-dialog-title" className="text-lg font-black text-[#172014]">신청 삭제</h3>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">이 신청을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
+          >
+            삭제
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function ReasonList({ reasons }: { readonly reasons: readonly string[] }) {
