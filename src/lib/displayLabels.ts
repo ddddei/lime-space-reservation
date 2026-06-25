@@ -5,7 +5,7 @@ export const getMeetingStatusLabel = (status: MeetingStatus): string => {
     case "draft":
       return "임시 저장";
     case "submitted":
-      return "제출 완료";
+      return "신청 완료";
     case "approved":
       return "승인 완료";
     case "rejected":

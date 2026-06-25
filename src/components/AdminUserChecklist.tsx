@@ -34,7 +34,7 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
   };
 
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">참여자 체크리스트</h2>

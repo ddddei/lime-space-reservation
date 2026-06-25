@@ -8,7 +8,7 @@ type AdminSummaryProps = {
 
 export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-extrabold text-[#5F9820]">관리자 로그인 완료</p>

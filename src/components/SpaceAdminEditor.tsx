@@ -17,11 +17,11 @@ export function SpaceAdminEditor({ spaces, readOnly, onUpdateSpace, onAddSpace }
   const nextSortOrder = Math.max(0, ...spaces.map((space) => space.sortOrder)) + 1;
 
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">공간 정보 관리</h2>
-          <p className="mt-1 text-xs font-semibold text-[#819078]">삭제 대신 비활성 처리로 운영합니다.</p>
+          <p className="mt-1 text-xs font-semibold text-[#819078]">운영 중단은 비활성 처리로 관리합니다.</p>
         </div>
         <button
           type="button"
@@ -34,7 +34,7 @@ export function SpaceAdminEditor({ spaces, readOnly, onUpdateSpace, onAddSpace }
       </div>
       {readOnly && (
         <p className="mt-3 rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
-          Supabase 공간 목록은 전체 조회만 연결되어 있습니다. 저장/수정/삭제 연동은 다음 작업에서 처리합니다.
+          Supabase 공간 목록은 전체 조회만 연결되어 있습니다. 저장/수정/비활성 처리는 다음 작업에서 처리합니다.
         </p>
       )}
       {showCreateForm && (

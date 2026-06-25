@@ -32,32 +32,58 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
   const [pendingCancelSessionId, setPendingCancelSessionId] = useState<string | undefined>();
   const [cancellingSessionId, setCancellingSessionId] = useState<string | undefined>();
   const [cancelError, setCancelError] = useState<string | undefined>();
+  const [cancelSuccess, setCancelSuccess] = useState<string | undefined>();
+  const [showCancelled, setShowCancelled] = useState(false);
   const [lastSaveResult, setLastSaveResult] = useState<SaveValidationResult | undefined>();
-  const myMeetings = meetings.filter((meeting) => meeting.applicantUserId === userId);
+  const myMeetings = meetings
+    .filter((meeting) => meeting.applicantUserId === userId)
+    .map((meeting) => ({
+      meeting,
+      visibleSessions: getVisibleMeetingSessions(meeting.id, sessions, showCancelled),
+      activeSessionCount: sessions.filter((session) => session.meetingId === meeting.id && session.status !== "cancelled").length,
+    }))
+    .filter((item) => item.visibleSessions.length > 0 || (showCancelled && item.meeting.status === "cancelled"))
+    .sort((first, second) => second.activeSessionCount - first.activeSessionCount);
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
-      <h2 className="text-lg font-bold text-[#172014]">내 신청 확인/수정</h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-bold text-[#172014]">내 신청 확인/수정</h2>
+          <p className="mt-1 text-xs font-semibold text-[#819078]">
+            취소되지 않은 신청을 먼저 표시합니다.
+          </p>
+        </div>
+        <label className="flex items-center gap-2 rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856]">
+          <input
+            type="checkbox"
+            checked={showCancelled}
+            onChange={(event) => setShowCancelled(event.target.checked)}
+            className="h-4 w-4 accent-[#77B82A]"
+          />
+          취소된 신청 보기
+        </label>
+      </div>
       <div className="mt-3 grid gap-3">
-        {myMeetings.map((meeting) => {
-          const meetingSessions = sessions.filter((session) => session.meetingId === meeting.id && session.status !== "cancelled");
+        {myMeetings.map(({ meeting, visibleSessions }) => {
           return (
             <article key={meeting.id} className="rounded-lg border border-[#EBF2E7] p-3">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <h3 className="font-bold text-[#172014]">{meeting.meetingName}</h3>
-                  <p className="text-sm text-[#5B6856]">{meetingSessions.length}개 회차</p>
+                  <p className="text-sm text-[#5B6856]">{visibleSessions.length}개 회차</p>
                 </div>
                 <span className="rounded-full bg-[#F1F8EC] px-2 py-1 text-xs font-bold text-[#5F9820]">
                   {getMeetingStatusLabel(meeting.status)}
                 </span>
               </div>
               <div className="mt-3 grid gap-2">
-                {meetingSessions.map((session) => {
+                {visibleSessions.map((session) => {
                   const space = spaces.find((item) => item.id === session.spaceId);
                   const isEditing = editingSession?.sessionId === session.id;
                   const editValues = isEditing ? editingSession.values : sessionToEditValues(session);
                   const editSpace = spaces.find((item) => item.id === editValues.spaceId);
                   const editableSpaces = spaces.filter((item) => item.isActive && (item.isPublicVisible || item.id === session.spaceId));
+                  const isCancelled = session.status === "cancelled";
                   const editValidation = validateReservationSave({
                     user,
                     meetingId: meeting.id,
@@ -77,29 +103,34 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                         <span className="text-[#172014]">
                           {meeting.meetingName} {session.sessionIndex}회차 · {space?.name ?? "공간 없음"} · {session.date} {session.startTime}-{session.endTime}
                         </span>
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingSession({ sessionId: session.id, values: sessionToEditValues(session) });
-                              setLastSaveResult(undefined);
-                            }}
-                            className="rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#5B6856] hover:border-[#77B82A]"
-                          >
-                            수정
-                          </button>
-                          <button
-                            type="button"
-                            disabled={cancellingSessionId === session.id}
-                            onClick={() => {
-                              setPendingCancelSessionId(session.id);
-                              setCancelError(undefined);
-                            }}
-                            className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
-                          >
-                            {cancellingSessionId === session.id ? "취소 중" : "신청 취소"}
-                          </button>
-                        </div>
+                        {isCancelled ? (
+                          <span className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E]">취소됨</span>
+                        ) : (
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingSession({ sessionId: session.id, values: sessionToEditValues(session) });
+                                setLastSaveResult(undefined);
+                              }}
+                              className="rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#5B6856] hover:border-[#77B82A]"
+                            >
+                              수정
+                            </button>
+                            <button
+                              type="button"
+                              disabled={cancellingSessionId === session.id}
+                              onClick={() => {
+                                setPendingCancelSessionId(session.id);
+                                setCancelError(undefined);
+                                setCancelSuccess(undefined);
+                              }}
+                              className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
+                            >
+                              {cancellingSessionId === session.id ? "취소 중" : "신청 취소"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                       {isEditing && (
                         <div className="mt-3 grid gap-2 rounded-lg border border-[#DDE8D6] bg-white p-3">
@@ -176,6 +207,17 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
           );
         })}
       </div>
+      {myMeetings.length === 0 && (
+        <p className="mt-3 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-4 text-center text-sm font-semibold text-[#819078]">
+          현재 표시할 신청 내역이 없습니다.
+        </p>
+      )}
+      {cancelSuccess !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-3 text-sm text-[#178A46]" role="status">
+          <p className="font-bold">예약 신청이 취소되었습니다.</p>
+          <p className="mt-1">{cancelSuccess}</p>
+        </div>
+      )}
       {cancelError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
           <p className="font-bold">신청 취소 실패</p>
@@ -193,13 +235,33 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
               setCancellingSessionId(undefined);
               if (result.status === "error") {
                 setCancelError(result.message);
+                return;
               }
+              setCancelSuccess("취소된 시간대는 다시 예약 가능 시간으로 반영됩니다.");
             });
           }}
         />
       )}
     </section>
   );
+}
+
+function getVisibleMeetingSessions(
+  meetingId: string,
+  sessions: readonly ReservationSession[],
+  showCancelled: boolean,
+): readonly ReservationSession[] {
+  return sessions
+    .filter((session) => session.meetingId === meetingId && (showCancelled || session.status !== "cancelled"))
+    .sort((first, second) => {
+      if (first.status !== second.status) {
+        return first.status === "cancelled" ? 1 : -1;
+      }
+      if (first.date !== second.date) {
+        return first.date.localeCompare(second.date);
+      }
+      return first.startTime.localeCompare(second.startTime);
+    });
 }
 
 function sessionToEditValues(session: ReservationSession): SessionEditValues {

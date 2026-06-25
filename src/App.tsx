@@ -17,6 +17,7 @@ import {
   canUseMockFallback,
   cancelReservationSession,
   fetchAdminReadModel,
+  fetchParticipantReservationReadModel,
   fetchReservationReadModel,
   updateParticipantReservationApproval,
 } from "./lib/supabaseReservationApi";
@@ -33,6 +34,7 @@ export function App() {
   const [adminUsers, setAdminUsers] = useState<readonly ParticipantUser[]>(allowMockFallback ? initialUsers : []);
   const [meetings, setMeetings] = useState<readonly Meeting[]>(allowMockFallback ? initialMeetings : []);
   const [sessions, setSessions] = useState<readonly ReservationSession[]>(allowMockFallback ? initialSessions : []);
+  const [publicActiveSessions, setPublicActiveSessions] = useState<readonly ReservationSession[]>(allowMockFallback ? initialSessions.filter((session) => session.status !== "cancelled") : []);
   const [publicAdminBlocks, setPublicAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
   const [adminBlocks, setAdminBlocks] = useState<readonly AdminBlock[]>(allowMockFallback ? initialAdminBlocks : []);
   const [adminApplications, setAdminApplications] = useState<readonly AdminApplication[]>([]);
@@ -45,6 +47,31 @@ export function App() {
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
 
+  const refreshReservationReadModel = useCallback(async (): Promise<boolean> => {
+    const model = await fetchReservationReadModel();
+    if (model === undefined) {
+      return false;
+    }
+    setPublicSpaces(model.spaces);
+    setPublicAdminBlocks(model.adminBlocks);
+    setPublicActiveSessions(model.activeSessions);
+    setSelectedSpaceId((current) => model.spaces.some((space) => space.id === current) ? current : getInitialPublicSpaceId(model.spaces));
+    return true;
+  }, []);
+
+  const refreshParticipantReservations = useCallback(async (participantId: string): Promise<boolean> => {
+    if (allowMockFallback) {
+      return true;
+    }
+    const model = await fetchParticipantReservationReadModel(participantId);
+    if (model === undefined) {
+      return false;
+    }
+    setMeetings(model.meetings);
+    setSessions(model.sessions);
+    return true;
+  }, [allowMockFallback]);
+
   useEffect(() => {
     let isCurrent = true;
     void fetchReservationReadModel().then((model) => {
@@ -53,12 +80,30 @@ export function App() {
       }
       setPublicSpaces(model.spaces);
       setPublicAdminBlocks(model.adminBlocks);
-      setSelectedSpaceId(getInitialPublicSpaceId(model.spaces));
+      setPublicActiveSessions(model.activeSessions);
+      setSelectedSpaceId((current) => model.spaces.some((space) => space.id === current) ? current : getInitialPublicSpaceId(model.spaces));
     });
     return () => {
       isCurrent = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (authenticatedUser === undefined) {
+      return;
+    }
+    let isCurrent = true;
+    void fetchParticipantReservationReadModel(authenticatedUser.id).then((model) => {
+      if (!isCurrent || model === undefined) {
+        return;
+      }
+      setMeetings(model.meetings);
+      setSessions(model.sessions);
+    });
+    return () => {
+      isCurrent = false;
+    };
+  }, [authenticatedUser]);
 
   const refreshAdminReadModel = useCallback(async (): Promise<boolean> => {
     if (authenticatedAdmin === undefined) {
@@ -151,7 +196,12 @@ export function App() {
     if (result.status === "error") {
       return result;
     }
-    markSessionCancelled(sessionId, result.meeting);
+    setMeetings((current) => result.meeting === undefined ? current : current.map((item) => item.id === result.meeting?.id ? result.meeting : item));
+    setSessions((current) => mergeSessions(current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session), result.sessions));
+    await Promise.all([
+      refreshParticipantReservations(authenticatedUser.id),
+      refreshReservationReadModel(),
+    ]);
     return { status: "ok" };
   };
 
@@ -170,11 +220,19 @@ export function App() {
     if (result.status === "error") {
       return result;
     }
-    await refreshAdminReadModel();
+    await Promise.all([
+      refreshAdminReadModel(),
+      refreshReservationReadModel(),
+      authenticatedUser === undefined ? Promise.resolve(false) : refreshParticipantReservations(authenticatedUser.id),
+    ]);
     return { status: "ok" };
   };
 
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
+  const effectiveSessions = useMemo(
+    () => allowMockFallback ? sessions : mergeSessions(publicActiveSessions, sessions),
+    [allowMockFallback, publicActiveSessions, sessions],
+  );
   const effectiveAdminApplications = allowMockFallback
     ? buildMockAdminApplications(meetings, sessions, adminSpaces)
     : adminApplications;
@@ -182,8 +240,8 @@ export function App() {
   const eligibility = useMemo(
     () => authenticatedUser === undefined
       ? undefined
-      : buildEligibility(authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId, selectedRange?.blockCount ?? 2),
-    [authenticatedUser, meetings, sessions, selectedDate, selectedSpaceId, selectedRange],
+      : buildEligibility(authenticatedUser, meetings, effectiveSessions, selectedDate, selectedSpaceId, selectedRange?.blockCount ?? 2),
+    [authenticatedUser, meetings, effectiveSessions, selectedDate, selectedSpaceId, selectedRange],
   );
   const saveValidation = useMemo(
     () => authenticatedUser === undefined
@@ -201,10 +259,10 @@ export function App() {
           meetingName,
           purpose: "",
           meetings,
-          sessions,
+          sessions: effectiveSessions,
           adminBlocks: publicAdminBlocks,
         }),
-    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, meetings, sessions, publicAdminBlocks],
+    [authenticatedUser, selectedSpace, selectedDate, selectedRange, meetingName, meetings, effectiveSessions, publicAdminBlocks],
   );
 
   return (
@@ -239,7 +297,7 @@ export function App() {
             selectedRange={selectedRange}
             meetingName={meetingName}
             meetings={meetings}
-            sessions={sessions}
+            sessions={effectiveSessions}
             spaces={publicSpaces}
             adminBlocks={publicAdminBlocks}
             setMeetings={setMeetings}
@@ -249,6 +307,10 @@ export function App() {
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
             onCancelSession={handleUserCancelSession}
+            onRefreshReservations={() => Promise.all([
+              refreshParticipantReservations(authenticatedUser.id),
+              refreshReservationReadModel(),
+            ]).then((results) => results.every(Boolean))}
             onLogout={() => setAuthenticatedUser(undefined)}
           />
         ) : mode === "user" ? (
@@ -258,7 +320,7 @@ export function App() {
         ) : authenticatedAdmin === undefined ? (
           <AdminLogin onAuthenticated={setAuthenticatedAdmin} />
         ) : (
-          <div className="grid gap-4">
+          <div className="grid min-w-0 gap-4">
             <AdminSummary admin={authenticatedAdmin} onLogout={() => {
               setAuthenticatedAdmin(undefined);
               setAdminApplications([]);
@@ -337,3 +399,27 @@ const buildMockAdminApplications = (
       updatedAt: session.updatedAt,
     };
   });
+
+const mergeSessions = (
+  primary: readonly ReservationSession[],
+  secondary: readonly ReservationSession[],
+): readonly ReservationSession[] => {
+  const sessionsById = new Map<string, ReservationSession>();
+  for (const session of primary) {
+    sessionsById.set(session.id, session);
+  }
+  for (const session of secondary) {
+    sessionsById.set(session.id, session);
+  }
+  return [...sessionsById.values()].sort(compareSessions);
+};
+
+const compareSessions = (first: ReservationSession, second: ReservationSession): number => {
+  if (first.date !== second.date) {
+    return first.date.localeCompare(second.date);
+  }
+  if (first.startTime !== second.startTime) {
+    return first.startTime.localeCompare(second.startTime);
+  }
+  return first.sessionIndex - second.sessionIndex;
+};

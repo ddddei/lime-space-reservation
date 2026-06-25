@@ -1,4 +1,4 @@
-import { useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { EligibilityPanel } from "./EligibilityPanel";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
@@ -45,6 +45,7 @@ type UserReservationFlowProps = {
   readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
   readonly onMeetingNameChange: (value: string) => void;
   readonly onCancelSession: (sessionId: string) => Promise<SessionActionResult>;
+  readonly onRefreshReservations?: () => Promise<boolean>;
   readonly onLogout: () => void;
 };
 
@@ -66,6 +67,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [submittedSummary, setSubmittedSummary] = useState<SubmittedReservationSummary | undefined>();
+  const [lightbox, setLightbox] = useState<LightboxState | undefined>();
 
   const openReservation = (spaceId: string): void => {
     props.onSelectSpace(spaceId);
@@ -95,6 +97,9 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       props.setMeetings((current) => [meeting, ...current]);
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
+    if (props.onRefreshReservations !== undefined) {
+      void props.onRefreshReservations();
+    }
     setSubmittedSummary(buildSubmittedSummary(props, outcome));
     setIsReservationOpen(false);
   };
@@ -105,7 +110,12 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="grid gap-8">
           <StepFrame title="공간 선택" description="카드를 누르면 예약 창이 열립니다.">
-            <SpaceLanding spaces={props.spaces} selectedSpaceId={props.selectedSpace.id} onSelectSpace={openReservation} />
+            <SpaceLanding
+              spaces={props.spaces}
+              selectedSpaceId={props.selectedSpace.id}
+              onSelectSpace={openReservation}
+              onOpenImages={(space, initialIndex) => setLightbox({ space, initialIndex })}
+            />
           </StepFrame>
         </div>
         <aside className="grid content-start gap-5 lg:sticky lg:top-6 lg:self-start">
@@ -145,12 +155,20 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
           onSubmit={() => {
             void handleSubmitReservation();
           }}
+          onOpenImages={(space, initialIndex) => setLightbox({ space, initialIndex })}
         />
       )}
       {submittedSummary !== undefined && (
         <ReservationCompleteDialog
           summary={submittedSummary}
           onClose={() => setSubmittedSummary(undefined)}
+        />
+      )}
+      {lightbox !== undefined && (
+        <ImageLightbox
+          space={lightbox.space}
+          initialIndex={lightbox.initialIndex}
+          onClose={() => setLightbox(undefined)}
         />
       )}
     </div>
@@ -198,6 +216,7 @@ type ReservationDialogProps = UserReservationFlowProps & {
   readonly isSubmitting: boolean;
   readonly submitError?: string;
   readonly onSubmit: () => void;
+  readonly onOpenImages: (space: Space, initialIndex: number) => void;
 };
 
 function ReservationDialog(props: ReservationDialogProps) {
@@ -223,7 +242,11 @@ function ReservationDialog(props: ReservationDialogProps) {
         </div>
         <div className="grid gap-5 overflow-y-auto p-4 md:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <div className="grid gap-5">
-            <SpaceImageSlider key={props.selectedSpace.id} space={props.selectedSpace} />
+            <SpaceImageSlider
+              key={props.selectedSpace.id}
+              space={props.selectedSpace}
+              onOpenImages={props.onOpenImages}
+            />
             <SelectedSpaceSummary space={props.selectedSpace} />
             <CalendarView
               selectedDate={props.selectedDate}
@@ -243,7 +266,7 @@ function ReservationDialog(props: ReservationDialogProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </div>
-          <aside className="grid content-start gap-4">
+          <aside className="sticky bottom-0 z-10 grid content-start gap-4 self-end xl:top-4 xl:self-start">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -283,9 +306,9 @@ function ReservationCompleteDialog({
       <div className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
         <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
         <h2 id="reservation-complete-title" className="mt-2 text-2xl font-black text-[#172014]">
-          모임공간 신청이 접수되었습니다.
+          예약 신청이 완료되었습니다.
         </h2>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">담당자 확인 후 최종 확정 안내를 드립니다.</p>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">관리자 확인 후 최종 예약이 확정됩니다.</p>
         <dl className="mt-5 grid gap-2 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3 text-sm">
           {rows.map((row) => (
             <div key={row.label} className="grid grid-cols-[72px_1fr] gap-3">
@@ -306,7 +329,13 @@ function ReservationCompleteDialog({
   );
 }
 
-function SpaceImageSlider({ space }: { readonly space: Space }) {
+function SpaceImageSlider({
+  space,
+  onOpenImages,
+}: {
+  readonly space: Space;
+  readonly onOpenImages: (space: Space, initialIndex: number) => void;
+}) {
   const images = getDisplayImages(space);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [failedImageIds, setFailedImageIds] = useState<readonly string[]>([]);
@@ -323,14 +352,21 @@ function SpaceImageSlider({ space }: { readonly space: Space }) {
     <section className="overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
       <div className="relative h-64 bg-[#070A07] md:h-80">
         {showImage ? (
-          <img
-            src={currentImage.imageUrl}
-            alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
-            className="h-full w-full object-cover"
-            width="760"
-            height="320"
-            onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
-          />
+          <button
+            type="button"
+            onClick={() => onOpenImages(space, currentIndex)}
+            className="block h-full w-full text-left"
+            aria-label={`${space.name} 사진 크게 보기`}
+          >
+            <img
+              src={currentImage.imageUrl}
+              alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
+              className="h-full w-full object-cover"
+              width="760"
+              height="320"
+              onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
+            />
+          </button>
         ) : (
           <SpaceImagePlaceholder name={space.name} />
         )}
@@ -380,6 +416,108 @@ function SpaceImageSlider({ space }: { readonly space: Space }) {
         </div>
       )}
     </section>
+  );
+}
+
+type LightboxState = {
+  readonly space: Space;
+  readonly initialIndex: number;
+};
+
+function ImageLightbox({
+  space,
+  initialIndex,
+  onClose,
+}: {
+  readonly space: Space;
+  readonly initialIndex: number;
+  readonly onClose: () => void;
+}) {
+  const images = getDisplayImages(space);
+  const safeInitialIndex = images[initialIndex] === undefined ? 0 : initialIndex;
+  const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
+  const [failedImageIds, setFailedImageIds] = useState<readonly string[]>([]);
+  const currentImage = images[currentIndex];
+  const showImage = currentImage !== undefined
+    && currentImage.imageUrl.trim().length > 0
+    && !failedImageIds.includes(currentImage.id);
+
+  const moveSlide = (direction: -1 | 1): void => {
+    setCurrentIndex((current) => (current + direction + images.length) % images.length);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+      if (event.key === "ArrowLeft" && images.length > 1) {
+        setCurrentIndex((current) => (current - 1 + images.length) % images.length);
+      }
+      if (event.key === "ArrowRight" && images.length > 1) {
+        setCurrentIndex((current) => (current + 1 + images.length) % images.length);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [images.length, onClose]);
+
+  return (
+    <div className="fixed inset-0 z-[70] grid bg-[#070A07]/90 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-labelledby="image-lightbox-title">
+      <div className="mx-auto grid h-full w-full max-w-6xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#070A07]">
+        <div className="flex items-center justify-between gap-3 border-b border-[#2C3A2B] p-4">
+          <div>
+            <p className="text-xs font-black text-[#A6F15B]">공간 사진</p>
+            <h2 id="image-lightbox-title" className="mt-1 text-xl font-black text-[#F5FAF2]">{space.name}</h2>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-[#F5FAF2]/25 px-3 py-2 text-sm font-extrabold text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+          >
+            닫기
+          </button>
+        </div>
+        <div className="relative min-h-0">
+          {showImage ? (
+            <img
+              src={currentImage.imageUrl}
+              alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
+              className="h-full w-full object-contain"
+              width="1200"
+              height="800"
+              onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
+            />
+          ) : (
+            <SpaceImagePlaceholder name={space.name} />
+          )}
+          {images.length > 1 && (
+            <div className="pointer-events-none absolute inset-y-0 left-0 right-0 flex items-center justify-between p-3">
+              <button
+                type="button"
+                onClick={() => moveSlide(-1)}
+                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#F5FAF2]/30 bg-[#070A07]/65 text-2xl font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                aria-label="이전 사진"
+              >
+                ‹
+              </button>
+              <button
+                type="button"
+                onClick={() => moveSlide(1)}
+                className="pointer-events-auto grid h-11 w-11 place-items-center rounded-full border border-[#F5FAF2]/30 bg-[#070A07]/65 text-2xl font-black text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+                aria-label="다음 사진"
+              >
+                ›
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-[#2C3A2B] p-4 text-sm font-bold text-[#B7C6B0]">
+          <span>{images.length > 0 ? `${currentIndex + 1} / ${images.length}` : "이미지 준비 중"}</span>
+          <span>ESC로 닫기</span>
+        </div>
+      </div>
+    </div>
   );
 }
 

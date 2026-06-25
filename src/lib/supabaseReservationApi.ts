@@ -1,5 +1,6 @@
 import { initialAdminBlocks } from "../data/mockAdminBlocks";
 import { initialAdmins } from "../data/mockAdmins";
+import { initialSessions } from "../data/mockSessions";
 import { initialSpaces } from "../data/spaces";
 import { initialUsers } from "../data/mockUsers";
 import { findAdminByNameAndPhone, findParticipantByNameAndPhone, type AdminAuthResult, type ParticipantAuthResult } from "./participantAuth";
@@ -13,12 +14,15 @@ import {
   mapAdminBlockRows,
   mapAdminParticipantRows,
   mapAdminVerificationRow,
+  mapMeetingRows,
   mapParticipantVerificationRow,
+  mapReservationSessionRows,
   mapReservationSubmissionRowsToMeeting,
   mapReservationSubmissionRowsToSessions,
   type SpaceImageRow,
   type SubmitReservationSessionInput,
   mapSpaceRows,
+  type AdminApplicationRow,
 } from "./supabaseMappers";
 import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -26,6 +30,7 @@ import type { PostgrestError } from "@supabase/supabase-js";
 type ReservationReadModel = {
   readonly spaces: readonly Space[];
   readonly adminBlocks: readonly AdminBlock[];
+  readonly activeSessions: readonly ReservationSession[];
 };
 
 export type AdminCredentials = {
@@ -38,6 +43,11 @@ type AdminReadModel = {
   readonly spaces: readonly Space[];
   readonly applications: readonly AdminApplication[];
   readonly adminBlocks: readonly AdminBlock[];
+};
+
+export type ParticipantReservationReadModel = {
+  readonly meetings: readonly Meeting[];
+  readonly sessions: readonly ReservationSession[];
 };
 
 export const fetchReservationReadModel = async (): Promise<ReservationReadModel | undefined> => {
@@ -55,15 +65,15 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
 
   if (spacesResponse.error !== null) {
     warnSupabaseReadError("공개 spaces 조회", spacesResponse.error);
-    return { spaces: [], adminBlocks: [] };
+    return { spaces: [], adminBlocks: [], activeSessions: [] };
   }
 
   const publicSpaceIds = spacesResponse.data.map((space) => space.space_id);
   if (publicSpaceIds.length === 0) {
-    return { spaces: [], adminBlocks: [] };
+    return { spaces: [], adminBlocks: [], activeSessions: [] };
   }
 
-  const [operatingHoursResponse, adminBlocksResponse, spaceImagesResponse] = await Promise.all([
+  const [operatingHoursResponse, adminBlocksResponse, activeSessionsResponse, spaceImagesResponse] = await Promise.all([
     supabaseClient
       .from("operating_hours")
       .select("space_id,day_of_week,open_time,close_time,is_closed")
@@ -75,29 +85,129 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
       .eq("is_active", true)
       .in("space_id", publicSpaceIds)
       .order("date", { ascending: true }),
+    fetchPublicActiveSessions(publicSpaceIds),
     fetchSpaceImageRows(publicSpaceIds),
   ]);
 
   if (operatingHoursResponse.error !== null) {
     warnSupabaseReadError("operating_hours 조회", operatingHoursResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows), adminBlocks: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
   }
 
   if (adminBlocksResponse.error !== null) {
     warnSupabaseReadError("공개 admin_blocks 조회", adminBlocksResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows), adminBlocks: [] };
+    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
   }
 
   return {
     spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows),
     adminBlocks: mapAdminBlockRows(adminBlocksResponse.data),
+    activeSessions: activeSessionsResponse.sessions,
   };
 };
 
 export const getMockReservationReadModel = (): ReservationReadModel => ({
   spaces: initialSpaces,
   adminBlocks: initialAdminBlocks,
+  activeSessions: initialSessions.filter((session) => session.status !== "cancelled"),
 });
+
+export const fetchParticipantReservationReadModel = async (
+  participantId: string,
+): Promise<ParticipantReservationReadModel | undefined> => {
+  if (supabaseClient === undefined) {
+    return undefined;
+  }
+
+  const applicationsResponse = await supabaseClient.rpc("get_participant_applications", {
+    input_participant_id: participantId,
+  });
+
+  if (applicationsResponse.error === null) {
+    return mapParticipantApplicationRowsToReadModel(applicationsResponse.data ?? []);
+  }
+
+  if (applicationsResponse.error.code !== "PGRST202") {
+    warnSupabaseReadError("get_participant_applications RPC", applicationsResponse.error);
+    return { meetings: [], sessions: [] };
+  }
+
+  const meetingsResponse = await supabaseClient
+    .from("meetings")
+    .select("meeting_id,applicant_participant_id,applicant_name,phone_last4,level,meeting_name,purpose,status,created_at,updated_at")
+    .eq("applicant_participant_id", participantId)
+    .order("updated_at", { ascending: false });
+
+  if (meetingsResponse.error !== null) {
+    warnSupabaseReadError("참여자 meetings 조회", meetingsResponse.error);
+    return { meetings: [], sessions: [] };
+  }
+
+  const meetingIds = (meetingsResponse.data ?? []).map((meeting) => meeting.meeting_id);
+  if (meetingIds.length === 0) {
+    return { meetings: [], sessions: [] };
+  }
+
+  const sessionsResponse = await supabaseClient
+    .from("sessions")
+    .select("session_id,meeting_id,session_index,space_id,date,start_time,end_time,block_count,status,created_at,updated_at")
+    .in("meeting_id", meetingIds)
+    .order("date", { ascending: false })
+    .order("start_time", { ascending: true });
+
+  if (sessionsResponse.error !== null) {
+    warnSupabaseReadError("참여자 sessions 조회", sessionsResponse.error);
+    return { meetings: mapMeetingRows(meetingsResponse.data ?? []), sessions: [] };
+  }
+
+  return {
+    meetings: mapMeetingRows(meetingsResponse.data ?? []),
+    sessions: mapReservationSessionRows(sessionsResponse.data ?? []),
+  };
+};
+
+const mapParticipantApplicationRowsToReadModel = (
+  rows: readonly AdminApplicationRow[],
+): ParticipantReservationReadModel => {
+  const applications = mapAdminApplicationRows(rows);
+  const meetingsById = new Map<string, Meeting>();
+  const sessions: ReservationSession[] = [];
+
+  for (const application of applications) {
+    if (!meetingsById.has(application.meetingId)) {
+      meetingsById.set(application.meetingId, {
+        id: application.meetingId,
+        applicantUserId: application.applicantParticipantId,
+        applicantName: application.applicantName,
+        phoneLast4: application.phoneLast4,
+        level: application.level,
+        meetingName: application.meetingName,
+        purpose: application.purpose,
+        status: application.meetingStatus,
+        createdAt: application.createdAt,
+        updatedAt: application.updatedAt,
+      });
+    }
+    sessions.push({
+      id: application.sessionId,
+      meetingId: application.meetingId,
+      sessionIndex: application.sessionIndex,
+      spaceId: application.spaceId,
+      date: application.date,
+      startTime: application.startTime,
+      endTime: application.endTime,
+      blockCount: application.blockCount,
+      status: application.sessionStatus,
+      createdAt: application.createdAt,
+      updatedAt: application.updatedAt,
+    });
+  }
+
+  return {
+    meetings: [...meetingsById.values()],
+    sessions,
+  };
+};
 
 export const fetchAdminReadModel = async (credentials: AdminCredentials): Promise<AdminReadModel | undefined> => {
   if (supabaseClient === undefined) {
@@ -164,6 +274,38 @@ export const fetchSpaceImageRows = async (
   }
 
   return { rows: response.data ?? [] };
+};
+
+const fetchPublicActiveSessions = async (
+  publicSpaceIds: readonly string[],
+): Promise<{ readonly sessions: readonly ReservationSession[] }> => {
+  if (supabaseClient === undefined || publicSpaceIds.length === 0) {
+    return { sessions: [] };
+  }
+
+  const rpcResponse = await supabaseClient.rpc("get_public_active_sessions", {});
+  if (rpcResponse.error === null) {
+    return { sessions: mapReservationSessionRows(rpcResponse.data ?? []) };
+  }
+
+  if (rpcResponse.error.code !== "PGRST202") {
+    warnSupabaseReadError("get_public_active_sessions RPC", rpcResponse.error);
+    return { sessions: [] };
+  }
+
+  const sessionsResponse = await supabaseClient
+    .from("sessions")
+    .select("session_id,meeting_id,session_index,space_id,date,start_time,end_time,block_count,status,created_at,updated_at")
+    .in("space_id", publicSpaceIds)
+    .neq("status", "cancelled")
+    .order("date", { ascending: true });
+
+  if (sessionsResponse.error !== null) {
+    warnSupabaseReadError("공개 sessions 조회", sessionsResponse.error);
+    return { sessions: [] };
+  }
+
+  return { sessions: mapReservationSessionRows(sessionsResponse.data ?? []) };
 };
 
 export const verifyParticipantLogin = async (
@@ -393,7 +535,7 @@ export const cancelReservationSession = async (
 
 export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
 
-const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "모임공간 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 
 // RPC 내부에서 raise exception으로 던진 한국어 검증 메시지(코드 P0001)는 사용자에게 그대로 보여주고,
 // 그 외 네트워크/서버 오류는 사용자에게 기술적인 내용을 노출하지 않도록 안내 문구로 정리한다.

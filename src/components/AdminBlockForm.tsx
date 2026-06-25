@@ -24,7 +24,7 @@ export function AdminBlockForm({ spaces, adminBlocks, readOnly, onAddBlock }: Ad
   const visibleBlocks = showAllBlocks ? sortedBlocks : sortedBlocks.slice(0, defaultVisibleCount);
 
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">관리자 차단 일정</h2>
@@ -44,7 +44,7 @@ export function AdminBlockForm({ spaces, adminBlocks, readOnly, onAddBlock }: Ad
       </div>
       {readOnly ? (
         <p className="mt-3 rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
-          Supabase 차단 일정은 읽기 전용입니다. 저장/삭제 연동은 다음 작업에서 처리합니다.
+          Supabase 차단 일정은 읽기 전용입니다. 저장/차단 해제는 다음 작업에서 처리합니다.
         </p>
       ) : (
         <>

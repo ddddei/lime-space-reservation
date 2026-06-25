@@ -39,8 +39,12 @@ export function AdminReservationTable({
   const [pendingCancel, setPendingCancel] = useState<AdminApplication | undefined>();
   const [cancellingSessionId, setCancellingSessionId] = useState<string | undefined>();
   const [cancelError, setCancelError] = useState<string | undefined>();
+  const [cancelSuccess, setCancelSuccess] = useState<string | undefined>();
 
-  const rows = useMemo<readonly AdminApplication[]>(() => applications, [applications]);
+  const rows = useMemo<readonly AdminApplication[]>(
+    () => [...applications].sort(compareApplications),
+    [applications],
+  );
 
   const filteredRows = rows.filter((row) => {
     const applicantKeyword = applicantFilter.trim();
@@ -49,13 +53,13 @@ export function AdminReservationTable({
     const meetingMatches = meetingKeyword.length === 0 || row.meetingName.includes(meetingKeyword);
     const spaceMatches = spaceFilter === "all" || row.spaceId === spaceFilter;
     const dateMatches = dateFilter.length === 0 || row.date === dateFilter;
-    const statusMatches = statusFilter === "all" || row.sessionStatus === statusFilter;
+    const statusMatches = statusFilter === "all" ? row.sessionStatus !== "cancelled" : row.sessionStatus === statusFilter;
     return applicantMatches && meetingMatches && spaceMatches && dateMatches && statusMatches;
   });
   const visibleRows = showAll ? filteredRows : filteredRows.slice(0, defaultVisibleCount);
 
   return (
-    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
+    <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-bold text-[#172014]">전체 신청 목록</h2>
@@ -93,6 +97,12 @@ export function AdminReservationTable({
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
           <p className="font-bold">신청 취소 실패</p>
           <p className="mt-1">{cancelError}</p>
+        </div>
+      )}
+      {cancelSuccess !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-3 text-sm text-[#178A46]" role="status">
+          <p className="font-bold">예약 신청이 취소되었습니다.</p>
+          <p className="mt-1">{cancelSuccess}</p>
         </div>
       )}
       <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_150px]">
@@ -190,6 +200,7 @@ export function AdminReservationTable({
                       onClick={() => {
                         setPendingCancel(application);
                         setCancelError(undefined);
+                        setCancelSuccess(undefined);
                       }}
                       className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
                     >
@@ -202,7 +213,7 @@ export function AdminReservationTable({
           </tbody>
         </table>
         {visibleRows.length === 0 && (
-          <p className="py-6 text-center text-sm font-semibold text-[#819078]">아직 신청 내역이 없습니다.</p>
+          <p className="py-6 text-center text-sm font-semibold text-[#819078]">현재 표시할 신청 내역이 없습니다.</p>
         )}
       </div>
       {pendingCancel !== undefined && (
@@ -217,7 +228,9 @@ export function AdminReservationTable({
               setCancellingSessionId(undefined);
               if (result.status === "error") {
                 setCancelError(result.message);
+                return;
               }
+              setCancelSuccess("전체 신청 목록을 최신 상태로 다시 불러왔습니다.");
             });
           }}
         />
@@ -228,6 +241,16 @@ export function AdminReservationTable({
 
 function toStatusFilter(value: string): StatusFilter {
   return statusOptions.find((option) => option.value === value)?.value ?? "all";
+}
+
+function compareApplications(first: AdminApplication, second: AdminApplication): number {
+  if (first.sessionStatus !== second.sessionStatus) {
+    return first.sessionStatus === "cancelled" ? 1 : -1;
+  }
+  if (first.date !== second.date) {
+    return second.date.localeCompare(first.date);
+  }
+  return first.startTime.localeCompare(second.startTime);
 }
 
 function ConfirmCancelDialog({
