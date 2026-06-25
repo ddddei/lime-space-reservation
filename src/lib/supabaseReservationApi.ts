@@ -13,10 +13,13 @@ import {
   mapAdminParticipantRows,
   mapAdminVerificationRow,
   mapParticipantVerificationRow,
+  mapReservationSubmissionRowsToMeeting,
+  mapReservationSubmissionRowsToSessions,
   type SpaceImageRow,
+  type SubmitReservationSessionInput,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { AdminApplication, AdminBlock, Space, ParticipantUser } from "../types/reservation";
+import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
@@ -265,6 +268,48 @@ export const updateParticipantReservationApproval = async (
   }
 
   return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export type { SubmitReservationSessionInput };
+
+export type SubmitReservationResult =
+  | { readonly status: "ok"; readonly meeting?: Meeting; readonly sessions: readonly ReservationSession[] }
+  | { readonly status: "error"; readonly message: string };
+
+export const submitReservationApplication = async (
+  participantId: string,
+  meetingName: string,
+  sessions: readonly SubmitReservationSessionInput[],
+): Promise<SubmitReservationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("submit_reservation_application", {
+    input_participant_id: participantId,
+    input_meeting_name: meetingName,
+    input_sessions: sessions,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("submit_reservation_application RPC", response.error);
+    return {
+      status: "error",
+      message: response.error.message.length > 0 ? response.error.message : "예약 신청을 저장할 수 없습니다.",
+    };
+  }
+
+  const rows = response.data ?? [];
+  const meeting = mapReservationSubmissionRowsToMeeting(rows);
+  if (meeting === undefined) {
+    return { status: "error", message: "예약 신청을 저장할 수 없습니다." };
+  }
+
+  return {
+    status: "ok",
+    meeting,
+    sessions: mapReservationSubmissionRowsToSessions(rows),
+  };
 };
 
 export const canUseMockFallback = (): boolean => !isSupabaseConfigured;

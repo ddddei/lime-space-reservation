@@ -5,10 +5,13 @@ import { MyMeetings } from "./MyMeetings";
 import { SpaceLanding } from "./SpaceLanding";
 import { TimeBlockSelector } from "./TimeBlockSelector";
 import { CalendarView } from "./CalendarView";
+import { addBlocks } from "../lib/date";
 import {
   prepareReservationCreate,
   prepareSessionUpdate,
 } from "../lib/mockReservationActions";
+import { RESERVATION_APPROVAL_GUIDE_MESSAGE } from "../lib/permissions";
+import { canUseMockFallback, submitReservationApplication } from "../lib/supabaseReservationApi";
 import type {
   AdminBlock,
   EligibilityResult,
@@ -45,15 +48,48 @@ type UserReservationFlowProps = {
 
 export function UserReservationFlow(props: UserReservationFlowProps) {
   const [isReservationOpen, setIsReservationOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | undefined>();
+  const [submitSuccessMessage, setSubmitSuccessMessage] = useState<string | undefined>();
+
   const openReservation = (spaceId: string): void => {
     props.onSelectSpace(spaceId);
     props.onChangeSelectedBlockTimes([]);
+    setSubmitError(undefined);
+    setSubmitSuccessMessage(undefined);
     setIsReservationOpen(true);
+  };
+
+  const handleSubmitReservation = async (): Promise<void> => {
+    if (!props.authenticatedUser.hasAdminApproval) {
+      setSubmitError(RESERVATION_APPROVAL_GUIDE_MESSAGE);
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitError(undefined);
+    const outcome = await submitReservation(props);
+    setIsSubmitting(false);
+    if (outcome.status === "error") {
+      setSubmitError(outcome.message);
+      return;
+    }
+    if (outcome.meeting !== undefined) {
+      const meeting = outcome.meeting;
+      props.setMeetings((current) => [meeting, ...current]);
+    }
+    props.setSessions((current) => [...outcome.sessions, ...current]);
+    setSubmitSuccessMessage("예약 신청이 완료되었습니다.");
+    setIsReservationOpen(false);
   };
 
   return (
     <div className="grid gap-8">
       <UserHero {...props} />
+      {submitSuccessMessage !== undefined && (
+        <div className="rounded-lg border border-[#DDE8D6] bg-[#F1F8EC] p-3 text-sm font-bold text-[#178A46]">
+          {submitSuccessMessage}
+        </div>
+      )}
       <div className="grid gap-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.65fr)]">
         <div className="grid gap-8">
           <StepFrame title="공간 선택" description="카드를 누르면 예약 창이 열립니다.">
@@ -91,8 +127,12 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       {isReservationOpen && (
         <ReservationDialog
           {...props}
+          isSubmitting={isSubmitting}
+          submitError={submitError}
           onClose={() => setIsReservationOpen(false)}
-          onSaved={() => setIsReservationOpen(false)}
+          onSubmit={() => {
+            void handleSubmitReservation();
+          }}
         />
       )}
     </div>
@@ -135,7 +175,14 @@ function UserHero(props: UserReservationFlowProps) {
   );
 }
 
-function ReservationDialog(props: UserReservationFlowProps & { readonly onClose: () => void; readonly onSaved: () => void }) {
+type ReservationDialogProps = UserReservationFlowProps & {
+  readonly onClose: () => void;
+  readonly isSubmitting: boolean;
+  readonly submitError?: string;
+  readonly onSubmit: () => void;
+};
+
+function ReservationDialog(props: ReservationDialogProps) {
   return (
     <div className="fixed inset-0 z-50 grid bg-[#070A07]/70 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-labelledby="reservation-dialog-title">
       <div className="mx-auto grid max-h-[calc(100dvh-24px)] w-full max-w-6xl overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#F7FBF4] shadow-[0_24px_80px_rgba(7,10,7,0.36)] md:max-h-[calc(100dvh-48px)]">
@@ -185,13 +232,10 @@ function ReservationDialog(props: UserReservationFlowProps & { readonly onClose:
               saveValidation={props.saveValidation}
               meetingName={props.meetingName}
               selectedRange={props.selectedRange}
+              isSubmitting={props.isSubmitting}
+              submitError={props.submitError}
               onMeetingNameChange={props.onMeetingNameChange}
-              onSubmit={() => {
-                const saved = saveReservation(props);
-                if (saved) {
-                  props.onSaved();
-                }
-              }}
+              onSubmit={props.onSubmit}
             />
           </aside>
         </div>
@@ -336,30 +380,49 @@ function StepFrame(props: { readonly title: string; readonly description: string
   );
 }
 
-function saveReservation(input: UserReservationFlowProps): boolean {
+type SubmitOutcome =
+  | { readonly status: "ok"; readonly meeting?: Meeting; readonly sessions: readonly ReservationSession[] }
+  | { readonly status: "error"; readonly message: string };
+
+async function submitReservation(input: UserReservationFlowProps): Promise<SubmitOutcome> {
   if (input.selectedRange === undefined) {
-    return false;
+    return { status: "error", message: "시간을 선택해 주세요." };
   }
-  const change = prepareReservationCreate({
-    selectedUser: input.authenticatedUser,
-    selectedSpace: input.selectedSpace,
-    selectedDate: input.selectedDate,
-    selectedStartTime: input.selectedRange.startTime,
-    selectedBlockCount: input.selectedRange.blockCount,
-    meetingName: input.meetingName,
-    purpose: "",
-    meetings: input.meetings,
-    sessions: input.sessions,
-    adminBlocks: input.adminBlocks,
-  });
-  if (!change.validation.canSave || change.session === undefined) {
-    return false;
+
+  if (canUseMockFallback()) {
+    const change = prepareReservationCreate({
+      selectedUser: input.authenticatedUser,
+      selectedSpace: input.selectedSpace,
+      selectedDate: input.selectedDate,
+      selectedStartTime: input.selectedRange.startTime,
+      selectedBlockCount: input.selectedRange.blockCount,
+      meetingName: input.meetingName,
+      purpose: "",
+      meetings: input.meetings,
+      sessions: input.sessions,
+      adminBlocks: input.adminBlocks,
+    });
+    if (!change.validation.canSave || change.session === undefined) {
+      return { status: "error", message: change.validation.reasons.join(", ") || "신청을 저장할 수 없습니다." };
+    }
+    return { status: "ok", meeting: change.meeting, sessions: [change.session] };
   }
-  if (change.meeting !== undefined) {
-    const meeting = change.meeting;
-    input.setMeetings((current) => [meeting, ...current]);
+
+  const startTime = input.selectedRange.startTime;
+  const endTime = addBlocks(startTime, input.selectedRange.blockCount);
+  const result = await submitReservationApplication(input.authenticatedUser.id, input.meetingName, [
+    {
+      space_id: input.selectedSpace.id,
+      date: input.selectedDate,
+      start_time: startTime,
+      end_time: endTime,
+      block_count: input.selectedRange.blockCount,
+      session_index: 1,
+    },
+  ]);
+
+  if (result.status === "error") {
+    return { status: "error", message: result.message };
   }
-  const session = change.session;
-  input.setSessions((current) => [session, ...current]);
-  return true;
+  return { status: "ok", meeting: result.meeting, sessions: result.sessions };
 }
