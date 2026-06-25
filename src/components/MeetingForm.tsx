@@ -73,7 +73,7 @@ export function MeetingForm(props: MeetingFormProps) {
         aria-busy={props.isSubmitting}
         className="mt-4 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
-        {props.isSubmitting ? "신청 중..." : "공간 예약 신청"}
+        {props.isSubmitting ? "신청 중..." : "모임공간 신청하기"}
       </button>
       {props.submitError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">

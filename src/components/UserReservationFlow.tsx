@@ -98,7 +98,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
     if (props.onRefreshReservations !== undefined) {
-      void props.onRefreshReservations();
+      await props.onRefreshReservations();
     }
     setSubmittedSummary(buildSubmittedSummary(props, outcome));
     setIsReservationOpen(false);
@@ -266,7 +266,7 @@ function ReservationDialog(props: ReservationDialogProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </div>
-          <aside className="sticky bottom-0 z-10 grid content-start gap-4 self-end xl:top-4 xl:self-start">
+          <aside className="grid content-start gap-4 self-end max-xl:sticky max-xl:bottom-0 max-xl:z-10 xl:sticky xl:top-4 xl:self-start">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -306,9 +306,12 @@ function ReservationCompleteDialog({
       <div className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
         <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
         <h2 id="reservation-complete-title" className="mt-2 text-2xl font-black text-[#172014]">
-          예약 신청이 완료되었습니다.
+          모임공간 신청이 접수되었습니다.
         </h2>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">관리자 확인 후 최종 예약이 확정됩니다.</p>
+        <div className="mt-4 rounded-lg border border-[#CDE8BA] bg-[#F1F8EC] p-3 text-sm text-[#178A46]" role="status">
+          <p className="font-black">내 신청 확인/수정에 바로 반영했습니다.</p>
+          <p className="mt-1 font-semibold">담당자 확인 후 최종 확정 안내를 드립니다.</p>
+        </div>
         <dl className="mt-5 grid gap-2 rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3 text-sm">
           {rows.map((row) => (
             <div key={row.label} className="grid grid-cols-[72px_1fr] gap-3">

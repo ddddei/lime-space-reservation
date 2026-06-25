@@ -127,11 +127,16 @@ export const fetchParticipantReservationReadModel = async (
     return mapParticipantApplicationRowsToReadModel(applicationsResponse.data ?? []);
   }
 
-  if (applicationsResponse.error.code !== "PGRST202") {
-    warnSupabaseReadError("get_participant_applications RPC", applicationsResponse.error);
+  warnSupabaseReadError("get_participant_applications RPC", applicationsResponse.error);
+  return fetchParticipantReservationsFromTables(participantId);
+};
+
+const fetchParticipantReservationsFromTables = async (
+  participantId: string,
+): Promise<ParticipantReservationReadModel> => {
+  if (supabaseClient === undefined) {
     return { meetings: [], sessions: [] };
   }
-
   const meetingsResponse = await supabaseClient
     .from("meetings")
     .select("meeting_id,applicant_participant_id,applicant_name,phone_last4,level,meeting_name,purpose,status,created_at,updated_at")
@@ -522,7 +527,7 @@ export const cancelReservationSession = async (
 
   if (response.error !== null) {
     warnSupabaseAuthError("cancel_reservation_session RPC", response.error);
-    return { status: "error", message: toReservationFailureMessage(response.error) };
+    return { status: "error", message: toReservationCancelFailureMessage(response.error) };
   }
 
   const rows = response.data ?? [];
@@ -544,6 +549,19 @@ const toReservationFailureMessage = (error: PostgrestError): string => {
     return error.message;
   }
   return RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE;
+};
+
+const toReservationCancelFailureMessage = (error: PostgrestError): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return RESERVATION_CANCEL_GENERIC_FAILURE_MESSAGE;
+  }
+  return parts.join(" / ");
 };
 
 const emptyAdminReadModel = (): AdminReadModel => ({

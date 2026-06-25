@@ -26,8 +26,13 @@ import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, Res
 
 type AppMode = "user" | "admin";
 
+const participantSessionKey = "lime-space-reservation.participant-session";
+const adminSessionKey = "lime-space-reservation.admin-session";
+const modeSessionKey = "lime-space-reservation.mode";
+const restoredAdminCredentialsMessage = "보안을 위해 관리자 전체 전화번호는 저장하지 않습니다. 새로고침 후 신청 목록을 다시 불러오려면 관리자 로그아웃 후 다시 로그인해 주세요.";
+
 export function App() {
-  const [mode, setMode] = useState<AppMode>("user");
+  const [mode, setMode] = useState<AppMode>(() => readStoredMode() ?? (readStoredAdmin() === undefined ? "user" : "admin"));
   const allowMockFallback = canUseMockFallback();
   const [publicSpaces, setPublicSpaces] = useState<readonly Space[]>(allowMockFallback ? getPublicSpaces(initialSpaces) : []);
   const [adminSpaces, setAdminSpaces] = useState<readonly Space[]>(allowMockFallback ? initialSpaces : []);
@@ -40,8 +45,8 @@ export function App() {
   const [adminApplications, setAdminApplications] = useState<readonly AdminApplication[]>([]);
   const [isRefreshingAdminApplications, setIsRefreshingAdminApplications] = useState(false);
   const [refreshAdminApplicationsError, setRefreshAdminApplicationsError] = useState<string | undefined>();
-  const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>();
-  const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>();
+  const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>(() => readStoredParticipantUser());
+  const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>(() => readStoredAdmin());
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
@@ -109,6 +114,10 @@ export function App() {
     if (authenticatedAdmin === undefined) {
       return false;
     }
+    if (authenticatedAdmin.phone.trim().length === 0) {
+      setRefreshAdminApplicationsError(restoredAdminCredentialsMessage);
+      return false;
+    }
     setIsRefreshingAdminApplications(true);
     setRefreshAdminApplicationsError(undefined);
     const model = await fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone });
@@ -128,6 +137,9 @@ export function App() {
     if (authenticatedAdmin === undefined) {
       return;
     }
+    if (authenticatedAdmin.phone.trim().length === 0) {
+      return;
+    }
     let isCurrent = true;
     void fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }).then((model) => {
       if (!isCurrent || model === undefined) {
@@ -142,6 +154,37 @@ export function App() {
       isCurrent = false;
     };
   }, [authenticatedAdmin]);
+
+  const handleParticipantAuthenticated = useCallback((user: ParticipantUser): void => {
+    setAuthenticatedUser(user);
+    setMode("user");
+    writeStoredMode("user");
+    writeStoredParticipantUser(user);
+  }, []);
+
+  const handleParticipantLogout = useCallback((): void => {
+    setAuthenticatedUser(undefined);
+    removeStoredParticipantUser();
+  }, []);
+
+  const handleAdminAuthenticated = useCallback((admin: Admin): void => {
+    setAuthenticatedAdmin(admin);
+    setMode("admin");
+    writeStoredMode("admin");
+    writeStoredAdmin(admin);
+  }, []);
+
+  const handleAdminLogout = useCallback((): void => {
+    setAuthenticatedAdmin(undefined);
+    removeStoredAdmin();
+    setAdminApplications([]);
+    setRefreshAdminApplicationsError(undefined);
+    if (!allowMockFallback) {
+      setAdminUsers([]);
+      setAdminSpaces([]);
+      setAdminBlocks([]);
+    }
+  }, [allowMockFallback]);
 
   const handleToggleApproval = async (user: ParticipantUser, nextValue: boolean): Promise<boolean> => {
     if (allowMockFallback) {
@@ -236,6 +279,8 @@ export function App() {
   const effectiveAdminApplications = allowMockFallback
     ? buildMockAdminApplications(meetings, sessions, adminSpaces)
     : adminApplications;
+  const effectiveRefreshAdminApplicationsError = refreshAdminApplicationsError
+    ?? (authenticatedAdmin?.phone.trim() === "" ? restoredAdminCredentialsMessage : undefined);
   const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
     () => authenticatedUser === undefined
@@ -277,15 +322,33 @@ export function App() {
             </p>
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={() => setMode("user")} className={tabClass(mode === "user")}>사용자 화면</button>
-            <button type="button" onClick={() => setMode("admin")} className={tabClass(mode === "admin")}>관리자 모드</button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("user");
+                writeStoredMode("user");
+              }}
+              className={tabClass(mode === "user")}
+            >
+              사용자 화면
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("admin");
+                writeStoredMode("admin");
+              }}
+              className={tabClass(mode === "admin")}
+            >
+              관리자 모드
+            </button>
           </div>
         </div>
       </header>
 
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-8">
         {mode === "user" && authenticatedUser === undefined ? (
-          <ParticipantLogin onAuthenticated={setAuthenticatedUser} />
+          <ParticipantLogin onAuthenticated={handleParticipantAuthenticated} />
         ) : mode === "user" && selectedSpace !== undefined && eligibility !== undefined && saveValidation !== undefined && authenticatedUser !== undefined ? (
           <UserReservationFlow
             authenticatedUser={authenticatedUser}
@@ -311,26 +374,17 @@ export function App() {
               refreshParticipantReservations(authenticatedUser.id),
               refreshReservationReadModel(),
             ]).then((results) => results.every(Boolean))}
-            onLogout={() => setAuthenticatedUser(undefined)}
+            onLogout={handleParticipantLogout}
           />
         ) : mode === "user" ? (
           <section className="rounded-lg border border-[#DDE8D6] bg-white p-6 text-sm font-semibold text-[#5B6856]">
             표시할 수 있는 생활지향형 제휴공간이 없습니다.
           </section>
         ) : authenticatedAdmin === undefined ? (
-          <AdminLogin onAuthenticated={setAuthenticatedAdmin} />
+          <AdminLogin onAuthenticated={handleAdminAuthenticated} />
         ) : (
           <div className="grid min-w-0 gap-4">
-            <AdminSummary admin={authenticatedAdmin} onLogout={() => {
-              setAuthenticatedAdmin(undefined);
-              setAdminApplications([]);
-              setRefreshAdminApplicationsError(undefined);
-              if (!allowMockFallback) {
-                setAdminUsers([]);
-                setAdminSpaces([]);
-                setAdminBlocks([]);
-              }
-            }} />
+            <AdminSummary admin={authenticatedAdmin} onLogout={handleAdminLogout} />
             <AdminPage
               users={adminUsers}
               applications={effectiveAdminApplications}
@@ -338,7 +392,7 @@ export function App() {
               adminBlocks={adminBlocks}
               readOnly={!allowMockFallback}
               isRefreshingApplications={isRefreshingAdminApplications}
-              refreshApplicationsError={refreshAdminApplicationsError}
+              refreshApplicationsError={effectiveRefreshAdminApplicationsError}
               onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
               onToggleApproval={handleToggleApproval}
               onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
@@ -423,3 +477,122 @@ const compareSessions = (first: ReservationSession, second: ReservationSession):
   }
   return first.sessionIndex - second.sessionIndex;
 };
+
+const readStoredParticipantUser = (): ParticipantUser | undefined => {
+  const record = readStoredRecord(participantSessionKey);
+  if (record === undefined) {
+    return undefined;
+  }
+  const level = toUserLevel(record.level);
+  const id = toStringValue(record.id);
+  const name = toStringValue(record.name);
+  const phoneLast4 = toStringValue(record.phoneLast4);
+  if (id.length === 0 || name.length === 0 || phoneLast4.length === 0 || level === undefined) {
+    removeStoredParticipantUser();
+    return undefined;
+  }
+  return {
+    id,
+    name,
+    phone: "",
+    phoneLast4,
+    level,
+    hasPlan: record.hasPlan === true,
+    hasBudget: record.hasBudget === true,
+    hasPromotion: record.hasPromotion === true,
+    hasAdminApproval: record.hasAdminApproval === true,
+    maxBlocks: toNumberValue(record.maxBlocks) ?? 0,
+    memo: toStringValue(record.memo),
+    isActive: record.isActive === true,
+    createdAt: toOptionalStringValue(record.createdAt),
+    updatedAt: toOptionalStringValue(record.updatedAt),
+  };
+};
+
+const writeStoredParticipantUser = (user: ParticipantUser): void => {
+  writeStoredRecord(participantSessionKey, { ...user, phone: "" });
+};
+
+const removeStoredParticipantUser = (): void => {
+  getSessionStorage()?.removeItem(participantSessionKey);
+};
+
+const readStoredAdmin = (): Admin | undefined => {
+  const record = readStoredRecord(adminSessionKey);
+  if (record === undefined) {
+    return undefined;
+  }
+  const id = toStringValue(record.id);
+  const name = toStringValue(record.name);
+  const phoneLast4 = toStringValue(record.phoneLast4);
+  const role = toStringValue(record.role);
+  if (id.length === 0 || name.length === 0 || phoneLast4.length === 0 || role.length === 0) {
+    removeStoredAdmin();
+    return undefined;
+  }
+  return {
+    id,
+    name,
+    phone: "",
+    phoneLast4,
+    role,
+    isActive: record.isActive === true,
+  };
+};
+
+const writeStoredAdmin = (admin: Admin): void => {
+  writeStoredRecord(adminSessionKey, { ...admin, phone: "" });
+};
+
+const removeStoredAdmin = (): void => {
+  getSessionStorage()?.removeItem(adminSessionKey);
+};
+
+const readStoredMode = (): AppMode | undefined => {
+  const value = getSessionStorage()?.getItem(modeSessionKey);
+  return value === "user" || value === "admin" ? value : undefined;
+};
+
+const writeStoredMode = (mode: AppMode): void => {
+  getSessionStorage()?.setItem(modeSessionKey, mode);
+};
+
+const readStoredRecord = (key: string): Record<string, unknown> | undefined => {
+  const raw = getSessionStorage()?.getItem(key);
+  if (raw === undefined || raw === null) {
+    return undefined;
+  }
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return isRecord(parsed) ? parsed : undefined;
+  } catch {
+    getSessionStorage()?.removeItem(key);
+    return undefined;
+  }
+};
+
+const writeStoredRecord = (key: string, value: Record<string, unknown>): void => {
+  getSessionStorage()?.setItem(key, JSON.stringify(value));
+};
+
+const getSessionStorage = (): Storage | undefined => {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+  return window.sessionStorage;
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const toStringValue = (value: unknown): string =>
+  typeof value === "string" ? value : "";
+
+const toOptionalStringValue = (value: unknown): string | undefined =>
+  typeof value === "string" && value.length > 0 ? value : undefined;
+
+const toNumberValue = (value: unknown): number | undefined =>
+  typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+const toUserLevel = (value: unknown): ParticipantUser["level"] | undefined =>
+  value === 1 || value === 2 ? value : undefined;
