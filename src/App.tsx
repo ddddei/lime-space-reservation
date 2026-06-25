@@ -113,12 +113,17 @@ export function App() {
     setIsRefreshingAdminData(false);
   };
 
+  const cancelMeetingAndSessionsLocally = (meetingId: string): void => {
+    setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+    setMeetings((current) => current.map((meeting) => meeting.id === meetingId ? { ...meeting, status: "cancelled" } : meeting));
+  };
+
   const handleCancelMeetingAsParticipant = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
     if (authenticatedUser === undefined) {
       return { ok: false, message: "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." };
     }
     if (allowMockFallback) {
-      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+      cancelMeetingAndSessionsLocally(meetingId);
       return { ok: true };
     }
     const result = await cancelReservationApplication(meetingId, {
@@ -129,13 +134,13 @@ export function App() {
     if (result.status !== "ok") {
       return { ok: false, message: result.message };
     }
-    setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+    cancelMeetingAndSessionsLocally(meetingId);
     return { ok: true };
   };
 
   const handleCancelMeetingAsAdmin = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
     if (allowMockFallback) {
-      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+      cancelMeetingAndSessionsLocally(meetingId);
       return { ok: true };
     }
     if (authenticatedAdmin === undefined) {

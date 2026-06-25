@@ -85,14 +85,14 @@ begin
     return;
   end if;
 
-  update public.meetings
+  update public.meetings m
   set status = 'cancelled', updated_at = now()
-  where meeting_id::text = input_meeting_id;
+  where m.meeting_id::text = input_meeting_id;
 
-  update public.sessions
+  update public.sessions s
   set status = 'cancelled', updated_at = now()
-  where meeting_id::text = input_meeting_id
-    and status <> 'cancelled';
+  where s.meeting_id::text = input_meeting_id
+    and s.status <> 'cancelled';
 
   get diagnostics v_cancelled_count = row_count;
 
