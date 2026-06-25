@@ -27,6 +27,7 @@ import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, Res
 type AppMode = "user" | "admin";
 
 const participantSessionKey = "lime-space-reservation.participant-session";
+const participantReservationsKeyPrefix = "lime-space-reservation.participant-reservations.";
 const adminSessionKey = "lime-space-reservation.admin-session";
 const modeSessionKey = "lime-space-reservation.mode";
 const restoredAdminCredentialsMessage = "보안을 위해 관리자 전체 전화번호는 저장하지 않습니다. 새로고침 후 신청 목록을 다시 불러오려면 관리자 로그아웃 후 다시 로그인해 주세요.";
@@ -45,6 +46,8 @@ export function App() {
   const [adminApplications, setAdminApplications] = useState<readonly AdminApplication[]>([]);
   const [isRefreshingAdminApplications, setIsRefreshingAdminApplications] = useState(false);
   const [refreshAdminApplicationsError, setRefreshAdminApplicationsError] = useState<string | undefined>();
+  const [isRefreshingParticipantReservations, setIsRefreshingParticipantReservations] = useState(false);
+  const [refreshParticipantReservationsError, setRefreshParticipantReservationsError] = useState<string | undefined>();
   const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>(() => readStoredParticipantUser());
   const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>(() => readStoredAdmin());
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
@@ -68,12 +71,19 @@ export function App() {
     if (allowMockFallback) {
       return true;
     }
+    setIsRefreshingParticipantReservations(true);
+    setRefreshParticipantReservationsError(undefined);
     const model = await fetchParticipantReservationReadModel(participantId);
+    setIsRefreshingParticipantReservations(false);
     if (model === undefined) {
+      setRefreshParticipantReservationsError("내 신청 목록을 다시 불러올 수 없습니다.");
       return false;
     }
-    setMeetings(model.meetings);
-    setSessions(model.sessions);
+    setMeetings((current) => mergeMeetings(current, model.meetings));
+    setSessions((current) => mergeSessions(current, model.sessions));
+    if (model.meetings.length > 0 || model.sessions.length > 0) {
+      writeStoredParticipantReservations(participantId, model);
+    }
     return true;
   }, [allowMockFallback]);
 
@@ -98,12 +108,23 @@ export function App() {
       return;
     }
     let isCurrent = true;
+    const cachedReservations = readStoredParticipantReservations(authenticatedUser.id);
+    queueMicrotask(() => {
+      if (!isCurrent) {
+        return;
+      }
+      setMeetings((current) => mergeMeetings(current, cachedReservations.meetings));
+      setSessions((current) => mergeSessions(current, cachedReservations.sessions));
+    });
     void fetchParticipantReservationReadModel(authenticatedUser.id).then((model) => {
       if (!isCurrent || model === undefined) {
         return;
       }
-      setMeetings(model.meetings);
-      setSessions(model.sessions);
+      setMeetings((current) => mergeMeetings(current, model.meetings));
+      setSessions((current) => mergeSessions(current, model.sessions));
+      if (model.meetings.length > 0 || model.sessions.length > 0) {
+        writeStoredParticipantReservations(authenticatedUser.id, model);
+      }
     });
     return () => {
       isCurrent = false;
@@ -157,14 +178,18 @@ export function App() {
 
   const handleParticipantAuthenticated = useCallback((user: ParticipantUser): void => {
     setAuthenticatedUser(user);
+    setMeetings(allowMockFallback ? initialMeetings : []);
+    setSessions(allowMockFallback ? initialSessions : []);
+    setRefreshParticipantReservationsError(undefined);
     setMode("user");
     writeStoredMode("user");
     writeStoredParticipantUser(user);
-  }, []);
+  }, [allowMockFallback]);
 
   const handleParticipantLogout = useCallback((): void => {
     setAuthenticatedUser(undefined);
     removeStoredParticipantUser();
+    setRefreshParticipantReservationsError(undefined);
   }, []);
 
   const handleAdminAuthenticated = useCallback((admin: Admin): void => {
@@ -241,6 +266,7 @@ export function App() {
     }
     setMeetings((current) => result.meeting === undefined ? current : current.map((item) => item.id === result.meeting?.id ? result.meeting : item));
     setSessions((current) => mergeSessions(current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session), result.sessions));
+    markStoredParticipantSessionCancelled(authenticatedUser.id, sessionId, result.meeting, result.sessions);
     await Promise.all([
       refreshParticipantReservations(authenticatedUser.id),
       refreshReservationReadModel(),
@@ -370,10 +396,15 @@ export function App() {
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
             onCancelSession={handleUserCancelSession}
+            isRefreshingReservations={isRefreshingParticipantReservations}
+            refreshReservationsError={refreshParticipantReservationsError}
             onRefreshReservations={() => Promise.all([
               refreshParticipantReservations(authenticatedUser.id),
               refreshReservationReadModel(),
             ]).then((results) => results.every(Boolean))}
+            onRememberSubmittedReservation={(meeting, submittedSessions) => {
+              rememberStoredParticipantReservation(authenticatedUser.id, meeting, submittedSessions);
+            }}
             onLogout={handleParticipantLogout}
           />
         ) : mode === "user" ? (
@@ -454,6 +485,20 @@ const buildMockAdminApplications = (
     };
   });
 
+const mergeMeetings = (
+  primary: readonly Meeting[],
+  secondary: readonly Meeting[],
+): readonly Meeting[] => {
+  const meetingsById = new Map<string, Meeting>();
+  for (const meeting of primary) {
+    meetingsById.set(meeting.id, meeting);
+  }
+  for (const meeting of secondary) {
+    meetingsById.set(meeting.id, meeting);
+  }
+  return [...meetingsById.values()].sort(compareMeetings);
+};
+
 const mergeSessions = (
   primary: readonly ReservationSession[],
   secondary: readonly ReservationSession[],
@@ -467,6 +512,9 @@ const mergeSessions = (
   }
   return [...sessionsById.values()].sort(compareSessions);
 };
+
+const compareMeetings = (first: Meeting, second: Meeting): number =>
+  second.updatedAt.localeCompare(first.updatedAt);
 
 const compareSessions = (first: ReservationSession, second: ReservationSession): number => {
   if (first.date !== second.date) {
@@ -515,6 +563,62 @@ const writeStoredParticipantUser = (user: ParticipantUser): void => {
 
 const removeStoredParticipantUser = (): void => {
   getSessionStorage()?.removeItem(participantSessionKey);
+};
+
+const participantReservationsKey = (participantId: string): string =>
+  `${participantReservationsKeyPrefix}${participantId}`;
+
+const readStoredParticipantReservations = (participantId: string): {
+  readonly meetings: readonly Meeting[];
+  readonly sessions: readonly ReservationSession[];
+} => {
+  const record = readStoredRecord(participantReservationsKey(participantId));
+  if (record === undefined) {
+    return { meetings: [], sessions: [] };
+  }
+  return {
+    meetings: readStoredArray(record.meetings, isStoredMeeting),
+    sessions: readStoredArray(record.sessions, isStoredReservationSession),
+  };
+};
+
+const writeStoredParticipantReservations = (
+  participantId: string,
+  value: { readonly meetings: readonly Meeting[]; readonly sessions: readonly ReservationSession[] },
+): void => {
+  writeStoredRecord(participantReservationsKey(participantId), {
+    meetings: value.meetings,
+    sessions: value.sessions,
+  });
+};
+
+const rememberStoredParticipantReservation = (
+  participantId: string,
+  meeting: Meeting | undefined,
+  sessions: readonly ReservationSession[],
+): void => {
+  const current = readStoredParticipantReservations(participantId);
+  writeStoredParticipantReservations(participantId, {
+    meetings: meeting === undefined ? current.meetings : mergeMeetings(current.meetings, [meeting]),
+    sessions: mergeSessions(current.sessions, sessions),
+  });
+};
+
+const markStoredParticipantSessionCancelled = (
+  participantId: string,
+  sessionId: string,
+  meeting: Meeting | undefined,
+  sessions: readonly ReservationSession[],
+): void => {
+  const current = readStoredParticipantReservations(participantId);
+  const nextSessions = mergeSessions(
+    current.sessions.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session),
+    sessions,
+  );
+  writeStoredParticipantReservations(participantId, {
+    meetings: meeting === undefined ? current.meetings : mergeMeetings(current.meetings, [meeting]),
+    sessions: nextSessions,
+  });
 };
 
 const readStoredAdmin = (): Admin | undefined => {
@@ -575,6 +679,16 @@ const writeStoredRecord = (key: string, value: Record<string, unknown>): void =>
   getSessionStorage()?.setItem(key, JSON.stringify(value));
 };
 
+const readStoredArray = <Item,>(
+  value: unknown,
+  predicate: (item: unknown) => item is Item,
+): readonly Item[] => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  return value.filter(predicate);
+};
+
 const getSessionStorage = (): Storage | undefined => {
   if (typeof window === "undefined") {
     return undefined;
@@ -596,3 +710,39 @@ const toNumberValue = (value: unknown): number | undefined =>
 
 const toUserLevel = (value: unknown): ParticipantUser["level"] | undefined =>
   value === 1 || value === 2 ? value : undefined;
+
+const isStoredMeeting = (value: unknown): value is Meeting => {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return toStringValue(value.id).length > 0
+    && toStringValue(value.applicantUserId).length > 0
+    && toStringValue(value.applicantName).length > 0
+    && toStringValue(value.meetingName).length > 0
+    && isMeetingStatus(value.status)
+    && toStringValue(value.createdAt).length > 0
+    && toStringValue(value.updatedAt).length > 0;
+};
+
+const isStoredReservationSession = (value: unknown): value is ReservationSession => {
+  if (!isRecord(value)) {
+    return false;
+  }
+  return toStringValue(value.id).length > 0
+    && toStringValue(value.meetingId).length > 0
+    && toNumberValue(value.sessionIndex) !== undefined
+    && toStringValue(value.spaceId).length > 0
+    && toStringValue(value.date).length > 0
+    && toStringValue(value.startTime).length > 0
+    && toStringValue(value.endTime).length > 0
+    && toNumberValue(value.blockCount) !== undefined
+    && isSessionStatus(value.status)
+    && toStringValue(value.createdAt).length > 0
+    && toStringValue(value.updatedAt).length > 0;
+};
+
+const isMeetingStatus = (value: unknown): value is Meeting["status"] =>
+  value === "draft" || value === "submitted" || value === "approved" || value === "rejected" || value === "cancelled";
+
+const isSessionStatus = (value: unknown): value is ReservationSession["status"] =>
+  value === "requested" || value === "confirmed" || value === "cancelled";

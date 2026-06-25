@@ -14,6 +14,9 @@ type MyMeetingsProps = {
   readonly user: ParticipantUser;
   readonly onUpdateSession: (sessionId: string, values: SessionEditValues) => SaveValidationResult;
   readonly onCancelSession: (sessionId: string) => Promise<SessionActionResult>;
+  readonly isRefreshing: boolean;
+  readonly refreshError?: string;
+  readonly onRefresh?: () => Promise<boolean>;
 };
 
 export type SessionEditValues = {
@@ -27,7 +30,19 @@ type EditingSession = {
   readonly values: SessionEditValues;
 };
 
-export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, user, onUpdateSession, onCancelSession }: MyMeetingsProps) {
+export function MyMeetings({
+  userId,
+  meetings,
+  sessions,
+  spaces,
+  adminBlocks,
+  user,
+  onUpdateSession,
+  onCancelSession,
+  isRefreshing,
+  refreshError,
+  onRefresh,
+}: MyMeetingsProps) {
   const [editingSession, setEditingSession] = useState<EditingSession | undefined>();
   const [pendingCancelSessionId, setPendingCancelSessionId] = useState<string | undefined>();
   const [cancellingSessionId, setCancellingSessionId] = useState<string | undefined>();
@@ -53,15 +68,31 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
             취소되지 않은 신청을 먼저 표시합니다.
           </p>
         </div>
-        <label className="flex items-center gap-2 rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856]">
-          <input
-            type="checkbox"
-            checked={showCancelled}
-            onChange={(event) => setShowCancelled(event.target.checked)}
-            className="h-4 w-4 accent-[#77B82A]"
-          />
-          취소된 신청 보기
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          {onRefresh !== undefined && (
+            <button
+              type="button"
+              onClick={() => {
+                setCancelError(undefined);
+                setCancelSuccess(undefined);
+                void onRefresh();
+              }}
+              disabled={isRefreshing}
+              className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:bg-[#F7FBF4] disabled:text-[#819078]"
+            >
+              {isRefreshing ? "새로고침 중" : "새로고침"}
+            </button>
+          )}
+          <label className="flex items-center gap-2 rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856]">
+            <input
+              type="checkbox"
+              checked={showCancelled}
+              onChange={(event) => setShowCancelled(event.target.checked)}
+              className="h-4 w-4 accent-[#77B82A]"
+            />
+            취소된 신청 보기
+          </label>
+        </div>
       </div>
       <div className="mt-3 grid gap-3">
         {myMeetings.map(({ meeting, visibleSessions }) => {
@@ -218,6 +249,12 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
           <p className="mt-1">{cancelSuccess}</p>
         </div>
       )}
+      {refreshError !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
+          <p className="font-bold">내 신청 목록 새로고침 실패</p>
+          <p className="mt-1">{refreshError}</p>
+        </div>
+      )}
       {cancelError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]" role="alert">
           <p className="font-bold">신청 취소 실패</p>
@@ -231,11 +268,14 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
             const sessionId = pendingCancelSessionId;
             setCancellingSessionId(sessionId);
             setPendingCancelSessionId(undefined);
-            void onCancelSession(sessionId).then((result) => {
+            void onCancelSession(sessionId).then(async (result) => {
               setCancellingSessionId(undefined);
               if (result.status === "error") {
                 setCancelError(result.message);
                 return;
+              }
+              if (onRefresh !== undefined) {
+                await onRefresh();
               }
               setCancelSuccess("취소된 시간대는 다시 예약 가능 시간으로 반영됩니다.");
             });

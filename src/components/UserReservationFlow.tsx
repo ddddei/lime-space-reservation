@@ -45,7 +45,10 @@ type UserReservationFlowProps = {
   readonly onChangeSelectedBlockTimes: (times: readonly string[]) => void;
   readonly onMeetingNameChange: (value: string) => void;
   readonly onCancelSession: (sessionId: string) => Promise<SessionActionResult>;
+  readonly isRefreshingReservations: boolean;
+  readonly refreshReservationsError?: string;
   readonly onRefreshReservations?: () => Promise<boolean>;
+  readonly onRememberSubmittedReservation: (meeting: Meeting | undefined, sessions: readonly ReservationSession[]) => void;
   readonly onLogout: () => void;
 };
 
@@ -97,6 +100,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
       props.setMeetings((current) => [meeting, ...current]);
     }
     props.setSessions((current) => [...outcome.sessions, ...current]);
+    props.onRememberSubmittedReservation(outcome.meeting, outcome.sessions);
     if (props.onRefreshReservations !== undefined) {
       await props.onRefreshReservations();
     }
@@ -143,6 +147,9 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
               return result.validation;
             }}
             onCancelSession={props.onCancelSession}
+            isRefreshing={props.isRefreshingReservations}
+            refreshError={props.refreshReservationsError}
+            onRefresh={props.onRefreshReservations}
           />
         </aside>
       </div>
@@ -220,9 +227,20 @@ type ReservationDialogProps = UserReservationFlowProps & {
 };
 
 function ReservationDialog(props: ReservationDialogProps) {
+  useEscapeClose(props.onClose);
+
   return (
-    <div className="fixed inset-0 z-50 grid bg-[#070A07]/70 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-labelledby="reservation-dialog-title">
-      <div className="mx-auto grid max-h-[calc(100dvh-24px)] w-full max-w-6xl overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#F7FBF4] shadow-[0_24px_80px_rgba(7,10,7,0.36)] md:max-h-[calc(100dvh-48px)]">
+    <div
+      className="fixed inset-0 z-50 grid bg-[#070A07]/70 p-3 backdrop-blur-sm md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reservation-dialog-title"
+      onMouseDown={props.onClose}
+    >
+      <div
+        className="mx-auto grid max-h-[calc(100dvh-24px)] w-full max-w-6xl overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#F7FBF4] shadow-[0_24px_80px_rgba(7,10,7,0.36)] md:max-h-[calc(100dvh-48px)]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="flex items-start justify-between gap-4 border-b border-[#DDE8D6] bg-white p-4 md:p-5">
           <div>
             <p className="text-xs font-black text-[#5F9820]">예약 신청</p>
@@ -266,7 +284,7 @@ function ReservationDialog(props: ReservationDialogProps) {
               onChangeSelectedBlockTimes={props.onChangeSelectedBlockTimes}
             />
           </div>
-          <aside className="grid content-start gap-4 self-end max-xl:sticky max-xl:bottom-0 max-xl:z-10 xl:sticky xl:top-4 xl:self-start">
+          <aside className="grid content-start gap-4 self-start xl:sticky xl:top-6">
             <MeetingForm
               selectedUser={props.authenticatedUser}
               eligibility={props.eligibility}
@@ -301,9 +319,20 @@ function ReservationCompleteDialog({
     { label: "상태", value: getSessionStatusLabel(summary.status) },
   ];
 
+  useEscapeClose(onClose);
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="reservation-complete-title">
-      <div className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/70 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="reservation-complete-title"
+      onMouseDown={onClose}
+    >
+      <div
+        className="w-full max-w-md rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <p className="text-xs font-black text-[#5F9820]">신청 완료</p>
         <h2 id="reservation-complete-title" className="mt-2 text-2xl font-black text-[#172014]">
           모임공간 신청이 접수되었습니다.
@@ -355,21 +384,14 @@ function SpaceImageSlider({
     <section className="overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
       <div className="relative h-64 bg-[#070A07] md:h-80">
         {showImage ? (
-          <button
-            type="button"
-            onClick={() => onOpenImages(space, currentIndex)}
-            className="block h-full w-full text-left"
-            aria-label={`${space.name} 사진 크게 보기`}
-          >
-            <img
-              src={currentImage.imageUrl}
-              alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
-              className="h-full w-full object-cover"
-              width="760"
-              height="320"
-              onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
-            />
-          </button>
+          <img
+            src={currentImage.imageUrl}
+            alt={currentImage.altText ?? `${space.name} 사진 ${currentIndex + 1}`}
+            className="h-full w-full object-cover"
+            width="760"
+            height="320"
+            onError={() => setFailedImageIds((current) => [...current, currentImage.id])}
+          />
         ) : (
           <SpaceImagePlaceholder name={space.name} />
         )}
@@ -400,6 +422,15 @@ function SpaceImageSlider({
               </button>
             </div>
           )}
+          {showImage && (
+            <button
+              type="button"
+              onClick={() => onOpenImages(space, currentIndex)}
+              className="rounded-lg border border-[#F5FAF2]/35 bg-[#070A07]/55 px-3 py-2 text-xs font-extrabold text-[#F5FAF2] transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+            >
+              사진 보기
+            </button>
+          )}
         </div>
       </div>
       {images.length > 1 && (
@@ -426,6 +457,18 @@ type LightboxState = {
   readonly space: Space;
   readonly initialIndex: number;
 };
+
+function useEscapeClose(onClose: () => void): void {
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+}
 
 function ImageLightbox({
   space,
@@ -466,8 +509,17 @@ function ImageLightbox({
   }, [images.length, onClose]);
 
   return (
-    <div className="fixed inset-0 z-[70] grid bg-[#070A07]/90 p-3 backdrop-blur-sm md:p-6" role="dialog" aria-modal="true" aria-labelledby="image-lightbox-title">
-      <div className="mx-auto grid h-full w-full max-w-6xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#070A07]">
+    <div
+      className="fixed inset-0 z-[70] grid bg-[#070A07]/90 p-3 backdrop-blur-sm md:p-6"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="image-lightbox-title"
+      onMouseDown={onClose}
+    >
+      <div
+        className="mx-auto grid h-full w-full max-w-6xl grid-rows-[auto_1fr_auto] overflow-hidden rounded-lg border border-[#2C3A2B] bg-[#070A07]"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <div className="flex items-center justify-between gap-3 border-b border-[#2C3A2B] p-4">
           <div>
             <p className="text-xs font-black text-[#A6F15B]">공간 사진</p>
@@ -561,9 +613,17 @@ function SelectedSpaceSummary({ space }: { readonly space: Space }) {
       <div className="mt-2 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h3 className="text-xl font-black text-[#172014]">{space.name}</h3>
-          <p className="mt-1 text-sm text-[#5B6856]">최대 {space.capacity}명 · {space.features.slice(0, 3).join(" · ")}</p>
+          <p className="mt-1 text-sm leading-6 text-[#5B6856]">{space.description}</p>
+          <p className="mt-2 text-sm font-bold text-[#172014]">최대 {space.capacity}명</p>
         </div>
         <span className="rounded-full bg-[#E8F5DE] px-3 py-1 text-xs font-black text-[#178A46]">예약 가능</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {space.features.map((feature) => (
+          <span key={feature} className="rounded-lg border border-[#DDE8D6] bg-[#F7FBF4] px-2 py-1 text-xs font-bold text-[#5B6856]">
+            {feature}
+          </span>
+        ))}
       </div>
     </section>
   );

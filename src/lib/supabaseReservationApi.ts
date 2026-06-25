@@ -1,7 +1,7 @@
 import { initialAdminBlocks } from "../data/mockAdminBlocks";
 import { initialAdmins } from "../data/mockAdmins";
 import { initialSessions } from "../data/mockSessions";
-import { initialSpaces } from "../data/spaces";
+import { applySpaceContentOverrides, initialSpaces } from "../data/spaces";
 import { initialUsers } from "../data/mockUsers";
 import { findAdminByNameAndPhone, findParticipantByNameAndPhone, type AdminAuthResult, type ParticipantAuthResult } from "./participantAuth";
 import { isSupabaseConfigured, supabaseClient } from "./supabaseClient";
@@ -22,7 +22,6 @@ import {
   type SpaceImageRow,
   type SubmitReservationSessionInput,
   mapSpaceRows,
-  type AdminApplicationRow,
 } from "./supabaseMappers";
 import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
@@ -91,23 +90,23 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
 
   if (operatingHoursResponse.error !== null) {
     warnSupabaseReadError("operating_hours 조회", operatingHoursResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
+    return { spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, [], spaceImagesResponse.rows)), adminBlocks: [], activeSessions: [] };
   }
 
   if (adminBlocksResponse.error !== null) {
     warnSupabaseReadError("공개 admin_blocks 조회", adminBlocksResponse.error);
-    return { spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows), adminBlocks: [], activeSessions: [] };
+    return { spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows)), adminBlocks: [], activeSessions: [] };
   }
 
   return {
-    spaces: mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows),
+    spaces: applySpaceContentOverrides(mapSpaceRows(spacesResponse.data, operatingHoursResponse.data, spaceImagesResponse.rows)),
     adminBlocks: mapAdminBlockRows(adminBlocksResponse.data),
     activeSessions: activeSessionsResponse.sessions,
   };
 };
 
 export const getMockReservationReadModel = (): ReservationReadModel => ({
-  spaces: initialSpaces,
+  spaces: applySpaceContentOverrides(initialSpaces),
   adminBlocks: initialAdminBlocks,
   activeSessions: initialSessions.filter((session) => session.status !== "cancelled"),
 });
@@ -118,16 +117,6 @@ export const fetchParticipantReservationReadModel = async (
   if (supabaseClient === undefined) {
     return undefined;
   }
-
-  const applicationsResponse = await supabaseClient.rpc("get_participant_applications", {
-    input_participant_id: participantId,
-  });
-
-  if (applicationsResponse.error === null) {
-    return mapParticipantApplicationRowsToReadModel(applicationsResponse.data ?? []);
-  }
-
-  warnSupabaseReadError("get_participant_applications RPC", applicationsResponse.error);
   return fetchParticipantReservationsFromTables(participantId);
 };
 
@@ -171,49 +160,6 @@ const fetchParticipantReservationsFromTables = async (
   };
 };
 
-const mapParticipantApplicationRowsToReadModel = (
-  rows: readonly AdminApplicationRow[],
-): ParticipantReservationReadModel => {
-  const applications = mapAdminApplicationRows(rows);
-  const meetingsById = new Map<string, Meeting>();
-  const sessions: ReservationSession[] = [];
-
-  for (const application of applications) {
-    if (!meetingsById.has(application.meetingId)) {
-      meetingsById.set(application.meetingId, {
-        id: application.meetingId,
-        applicantUserId: application.applicantParticipantId,
-        applicantName: application.applicantName,
-        phoneLast4: application.phoneLast4,
-        level: application.level,
-        meetingName: application.meetingName,
-        purpose: application.purpose,
-        status: application.meetingStatus,
-        createdAt: application.createdAt,
-        updatedAt: application.updatedAt,
-      });
-    }
-    sessions.push({
-      id: application.sessionId,
-      meetingId: application.meetingId,
-      sessionIndex: application.sessionIndex,
-      spaceId: application.spaceId,
-      date: application.date,
-      startTime: application.startTime,
-      endTime: application.endTime,
-      blockCount: application.blockCount,
-      status: application.sessionStatus,
-      createdAt: application.createdAt,
-      updatedAt: application.updatedAt,
-    });
-  }
-
-  return {
-    meetings: [...meetingsById.values()],
-    sessions,
-  };
-};
-
 export const fetchAdminReadModel = async (credentials: AdminCredentials): Promise<AdminReadModel | undefined> => {
   if (supabaseClient === undefined) {
     return undefined;
@@ -253,7 +199,7 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
 
   return {
     participants: mapAdminParticipantRows(participantsResponse.data ?? []),
-    spaces: mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows),
+    spaces: applySpaceContentOverrides(mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows)),
     applications: mapAdminApplicationRows(applicationsResponse.data ?? []),
     adminBlocks: mapAdminBlockRows(blocksResponse.data ?? []),
   };
@@ -545,10 +491,16 @@ const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했�
 // RPC 내부에서 raise exception으로 던진 한국어 검증 메시지(코드 P0001)는 사용자에게 그대로 보여주고,
 // 그 외 네트워크/서버 오류는 사용자에게 기술적인 내용을 노출하지 않도록 안내 문구로 정리한다.
 const toReservationFailureMessage = (error: PostgrestError): string => {
-  if (error.code === "P0001" && error.message.trim().length > 0) {
-    return error.message;
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE;
   }
-  return RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE;
+  return parts.join(" / ");
 };
 
 const toReservationCancelFailureMessage = (error: PostgrestError): string => {

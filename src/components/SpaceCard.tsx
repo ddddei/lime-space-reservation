@@ -24,9 +24,9 @@ export function SpaceCard({ space, isSelected, onSelect, onOpenImages }: SpaceCa
         {hasImage ? (
           <button
             type="button"
-            onClick={() => onOpenImages?.(space, 0)}
+            onClick={() => onSelect(space.id)}
             className="block h-48 w-full overflow-hidden text-left"
-            aria-label={`${space.name} 사진 크게 보기`}
+            aria-label={`${space.name} 예약 신청 열기`}
           >
             <img
               src={cardImage.imageUrl}
@@ -51,6 +51,16 @@ export function SpaceCard({ space, isSelected, onSelect, onOpenImages }: SpaceCa
             {isSelected ? "선택됨" : `${space.capacity}명`}
           </span>
         </div>
+        {hasImage && onOpenImages !== undefined && (
+          <button
+            type="button"
+            onClick={() => onOpenImages(space, 0)}
+            className="absolute right-3 top-3 rounded-lg border border-[#F5FAF2]/45 bg-[#070A07]/65 px-3 py-2 text-xs font-extrabold text-[#F5FAF2] backdrop-blur transition hover:border-[#A6F15B] focus:outline-none focus:ring-2 focus:ring-[#A6F15B]/50"
+            aria-label={`${space.name} 사진 보기`}
+          >
+            사진 보기
+          </button>
+        )}
       </div>
       <button type="button" onClick={() => onSelect(space.id)} className="block w-full space-y-3 p-4 text-left">
         <div>
