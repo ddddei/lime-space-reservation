@@ -61,7 +61,7 @@ export function AdminBlockForm({ spaces, adminBlocks, canManage, onSaveBlock, on
 
   const handleSubmit = (): void => {
     if (!canManage) {
-      setNotice({ tone: "error", title: "저장할 수 없습니다.", message: "관리자 전체 전화번호로 다시 로그인해 주세요." });
+      setNotice({ tone: "error", title: "저장할 수 없습니다.", message: "관리자 로그인 정보를 확인할 수 없습니다. 로그아웃 후 다시 로그인해 주세요." });
       return;
     }
     if (validationMessages.length > 0) {
@@ -133,7 +133,7 @@ export function AdminBlockForm({ spaces, adminBlocks, canManage, onSaveBlock, on
 
       {!canManage && (
         <p className="mt-3 rounded-lg border border-[#F2D59B] bg-[#FFF6E3] px-3 py-2 text-xs font-semibold text-[#B76E00]">
-          저장/수정/해제는 관리자 전체 전화번호로 다시 로그인한 뒤 사용할 수 있습니다.
+          관리자 로그인 정보를 확인할 수 없어 저장/수정/해제를 사용할 수 없습니다. 로그아웃 후 다시 로그인해 주세요.
         </p>
       )}
 

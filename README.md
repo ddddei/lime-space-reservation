@@ -88,7 +88,10 @@ supabase/manual-sql   운영 수동 SQL
 - 전체 신청 목록 조회/새로고침
 - 관리자 신청 취소
 - 관리자 차단 일정 저장/수정/해제
-- 공간 정보 조회
+- 운영 상태 요약
+- 공간 활성/비활성 처리
+- 공간 사용자 노출/숨김 처리
+- 공간 설명, 관리자 메모, 정원, 특징 태그 수정
 
 ## 예약 구조
 
@@ -103,6 +106,8 @@ supabase/manual-sql   운영 수동 SQL
 - 운영 오픈 전 `meetings = 0`, `sessions = 0` 상태를 확인합니다.
 - `participants`, `admins`, `spaces`, `space_images`, `operating_hours`, `admin_blocks`는 운영 master 데이터입니다.
 - 테스트 신청은 QA 후 반드시 `03_clear_test_reservations.sql`로 정리합니다.
+- `meetings/sessions` 초기화는 관리자 화면 버튼으로 제공하지 않으며 SQL로만 진행합니다.
+- 관리자 로그인은 브라우저 탭의 `sessionStorage`에만 유지됩니다. 운영 중 새로고침 후에도 관리자 화면이 유지되며, 브라우저 탭을 닫거나 로그아웃하면 다시 로그인해야 합니다.
 - Supabase CLI의 `db query --linked`는 병렬 실행하지 않습니다. temp role 초기화가 충돌할 수 있으므로 SQL은 순차 실행합니다.
 - 배포 직전 실제 URL에서 김나영 참가자 로그인과 한필구 관리자 로그인을 한 번 더 확인합니다.
 

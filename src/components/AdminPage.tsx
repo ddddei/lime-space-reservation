@@ -9,12 +9,11 @@ type AdminPageProps = {
   readonly applications: readonly AdminApplication[];
   readonly spaces: readonly Space[];
   readonly adminBlocks: readonly AdminBlock[];
-  readonly readOnly: boolean;
   readonly isRefreshingApplications: boolean;
   readonly refreshApplicationsError?: string;
   readonly onUpdateUser: (user: ParticipantUser) => void;
   readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
-  readonly onUpdateSpace: (space: Space) => void;
+  readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: Space) => void;
   readonly onRefreshApplications: () => void;
   readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
@@ -29,7 +28,7 @@ export function AdminPage(props: AdminPageProps) {
       <AdminUserChecklist
         users={props.users}
         applications={props.applications}
-        readOnly={props.readOnly}
+        readOnly={true}
         onUpdateUser={props.onUpdateUser}
         onToggleApproval={props.onToggleApproval}
       />
@@ -48,7 +47,7 @@ export function AdminPage(props: AdminPageProps) {
         onSaveBlock={props.onSaveBlock}
         onDeactivateBlock={props.onDeactivateBlock}
       />
-      <SpaceAdminEditor spaces={props.spaces} readOnly={props.readOnly} onUpdateSpace={props.onUpdateSpace} onAddSpace={props.onAddSpace} />
+      <SpaceAdminEditor spaces={props.spaces} onSaveSpace={props.onSaveSpace} onAddSpace={props.onAddSpace} />
     </div>
   );
 }

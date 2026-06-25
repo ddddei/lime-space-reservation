@@ -32,6 +32,18 @@ export type SpaceRow = {
   readonly updated_at?: string | null;
 };
 
+export type SpaceUpdate = {
+  readonly name?: string;
+  readonly capacity?: number;
+  readonly description?: string;
+  readonly image_url?: string;
+  readonly features?: readonly string[];
+  readonly is_active?: boolean;
+  readonly is_public_visible?: boolean;
+  readonly parent_space_name?: string;
+  readonly admin_memo?: string;
+};
+
 export type SpaceImageRow = {
   readonly image_id: string;
   readonly space_id: string;
@@ -409,6 +421,15 @@ export const firstAdminParticipantRow = (
 export const firstAdminBlockRow = (
   data: AdminBlockRow | AdminBlockRow[] | null,
 ): AdminBlockRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
+export const firstSpaceRow = (
+  data: SpaceRow | SpaceRow[] | null,
+): SpaceRow | undefined => {
   if (Array.isArray(data)) {
     return data[0];
   }

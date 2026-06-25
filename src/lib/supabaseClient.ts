@@ -13,6 +13,7 @@ import type {
   ReservationSessionRow,
   SpaceImageRow,
   SpaceRow,
+  SpaceUpdate,
   SubmitReservationSessionInput,
 } from "./supabaseMappers";
 
@@ -22,7 +23,7 @@ type ReservationDatabase = {
       readonly spaces: {
         readonly Row: SpaceRow;
         readonly Insert: never;
-        readonly Update: never;
+        readonly Update: SpaceUpdate;
         readonly Relationships: [];
       };
       readonly space_images: {
@@ -92,6 +93,23 @@ type ReservationDatabase = {
           readonly input_admin_phone: string;
         };
         readonly Returns: SpaceRow[];
+      };
+      readonly update_admin_space: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_space_id: string;
+          readonly input_name: string;
+          readonly input_capacity: number;
+          readonly input_description: string;
+          readonly input_image_url: string;
+          readonly input_features: readonly string[];
+          readonly input_is_active: boolean;
+          readonly input_is_public_visible: boolean;
+          readonly input_parent_space_name: string;
+          readonly input_admin_memo: string;
+        };
+        readonly Returns: SpaceRow[] | null;
       };
       readonly get_admin_applications: {
         readonly Args: {

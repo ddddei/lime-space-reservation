@@ -21,8 +21,10 @@ import {
   fetchParticipantReservationReadModel,
   fetchReservationReadModel,
   saveAdminBlock,
+  saveAdminSpace,
   updateParticipantReservationApproval,
   type AdminBlockMutationInput,
+  type AdminSpaceMutationInput,
 } from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
@@ -37,7 +39,6 @@ const participantSessionKey = "lime-space-reservation.participant-session";
 const participantReservationsKeyPrefix = "lime-space-reservation.participant-reservations.";
 const adminSessionKey = "lime-space-reservation.admin-session";
 const modeSessionKey = "lime-space-reservation.mode";
-const restoredAdminCredentialsMessage = "보안을 위해 관리자 전체 전화번호는 저장하지 않습니다. 새로고침 후 신청 목록을 다시 불러오려면 관리자 로그아웃 후 다시 로그인해 주세요.";
 
 export function App() {
   const [mode, setMode] = useState<AppMode>(() => readStoredMode() ?? (readStoredAdmin() === undefined ? "user" : "admin"));
@@ -135,10 +136,6 @@ export function App() {
     if (authenticatedAdmin === undefined) {
       return false;
     }
-    if (authenticatedAdmin.phone.trim().length === 0) {
-      setRefreshAdminApplicationsError(restoredAdminCredentialsMessage);
-      return false;
-    }
     setIsRefreshingAdminApplications(true);
     setRefreshAdminApplicationsError(undefined);
     const model = await fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone });
@@ -156,9 +153,6 @@ export function App() {
 
   useEffect(() => {
     if (authenticatedAdmin === undefined) {
-      return;
-    }
-    if (authenticatedAdmin.phone.trim().length === 0) {
       return;
     }
     let isCurrent = true;
@@ -340,6 +334,24 @@ export function App() {
     return { status: "ok" };
   };
 
+  const handleSaveAdminSpace = async (space: AdminSpaceMutationInput): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      setAdminSpaces((current) => current.map((item) => item.id === space.id ? { ...item, ...space } : item));
+      setPublicSpaces((current) => getPublicSpaces(current.map((item) => item.id === space.id ? { ...item, ...space } : item)));
+      return { status: "ok" };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await saveAdminSpace({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, space);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    setAdminSpaces((current) => current.map((item) => item.id === result.space.id ? result.space : item));
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
   const effectiveSessions = useMemo(
     () => allowMockFallback ? sessions : mergeSessions(publicActiveSessions, sessions),
@@ -348,8 +360,7 @@ export function App() {
   const effectiveAdminApplications = allowMockFallback
     ? buildMockAdminApplications(meetings, sessions, adminSpaces)
     : adminApplications;
-  const effectiveRefreshAdminApplicationsError = refreshAdminApplicationsError
-    ?? (authenticatedAdmin?.phone.trim() === "" ? restoredAdminCredentialsMessage : undefined);
+  const effectiveRefreshAdminApplicationsError = refreshAdminApplicationsError;
   const canShowAdminModeButton = authenticatedUser === undefined || authenticatedAdmin !== undefined || mode === "admin";
   const selectedRange = useMemo(() => getSelectedTimeRange(selectedBlockTimes), [selectedBlockTimes]);
   const eligibility = useMemo(
@@ -461,18 +472,23 @@ export function App() {
           <AdminLogin onAuthenticated={handleAdminAuthenticated} />
         ) : (
           <div className="grid min-w-0 gap-4">
-            <AdminSummary admin={authenticatedAdmin} onLogout={handleAdminLogout} />
+            <AdminSummary
+              admin={authenticatedAdmin}
+              users={adminUsers}
+              applications={effectiveAdminApplications}
+              adminBlocks={adminBlocks}
+              onLogout={handleAdminLogout}
+            />
             <AdminPage
               users={adminUsers}
               applications={effectiveAdminApplications}
               spaces={adminSpaces}
               adminBlocks={adminBlocks}
-              readOnly={!allowMockFallback}
               isRefreshingApplications={isRefreshingAdminApplications}
               refreshApplicationsError={effectiveRefreshAdminApplicationsError}
               onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
               onToggleApproval={handleToggleApproval}
-              onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
+              onSaveSpace={handleSaveAdminSpace}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
               onRefreshApplications={() => {
                 void refreshAdminReadModel();
@@ -728,15 +744,16 @@ const readStoredAdmin = (): Admin | undefined => {
   const id = toStringValue(record.id);
   const name = toStringValue(record.name);
   const phoneLast4 = toStringValue(record.phoneLast4);
+  const phone = toStringValue(record.phone);
   const role = toStringValue(record.role);
-  if (id.length === 0 || name.length === 0 || phoneLast4.length === 0 || role.length === 0) {
+  if (id.length === 0 || name.length === 0 || phoneLast4.length === 0 || phone.length === 0 || role.length === 0) {
     removeStoredAdmin();
     return undefined;
   }
   return {
     id,
     name,
-    phone: "",
+    phone,
     phoneLast4,
     role,
     isActive: record.isActive === true,
@@ -744,7 +761,7 @@ const readStoredAdmin = (): Admin | undefined => {
 };
 
 const writeStoredAdmin = (admin: Admin): void => {
-  writeStoredRecord(adminSessionKey, { ...admin, phone: "" });
+  writeStoredRecord(adminSessionKey, admin);
 };
 
 const removeStoredAdmin = (): void => {

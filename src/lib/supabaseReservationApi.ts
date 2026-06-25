@@ -11,6 +11,7 @@ import {
   firstAdminVerificationRow,
   firstCancelReservationRow,
   firstParticipantVerificationRow,
+  firstSpaceRow,
   mapAdminApplicationRows,
   mapAdminBlockRows,
   mapAdminParticipantRows,
@@ -385,6 +386,15 @@ export type AdminBlockMutationResult =
   | { readonly status: "ok"; readonly block: AdminBlock }
   | { readonly status: "error"; readonly message: string };
 
+export type AdminSpaceMutationInput = Pick<
+  Space,
+  "id" | "name" | "capacity" | "description" | "imageUrl" | "features" | "isActive" | "isPublicVisible" | "parentSpaceName" | "adminMemo"
+>;
+
+export type AdminSpaceMutationResult =
+  | { readonly status: "ok"; readonly space: Space }
+  | { readonly status: "error"; readonly message: string };
+
 export const updateParticipantReservationApproval = async (
   admin: AdminCredentials,
   participantId: string,
@@ -471,6 +481,42 @@ export const deactivateAdminBlock = async (
   }
 
   return { status: "ok", block: mapAdminBlockRows([row])[0] };
+};
+
+export const saveAdminSpace = async (
+  admin: AdminCredentials,
+  input: AdminSpaceMutationInput,
+): Promise<AdminSpaceMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("update_admin_space", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_space_id: input.id,
+    input_name: input.name.trim(),
+    input_capacity: input.capacity,
+    input_description: input.description,
+    input_image_url: input.imageUrl,
+    input_features: input.features,
+    input_is_active: input.isActive,
+    input_is_public_visible: input.isPublicVisible,
+    input_parent_space_name: input.parentSpaceName ?? "",
+    input_admin_memo: input.adminMemo ?? "",
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("update_admin_space RPC", response.error);
+    return { status: "error", message: toAdminSpaceFailureMessage(response.error) };
+  }
+
+  const row = firstSpaceRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_SPACE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", space: mapSpaceRows([row], [])[0] };
 };
 
 export type { SubmitReservationSessionInput };
@@ -597,6 +643,7 @@ export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
 
 const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_BLOCK_GENERIC_FAILURE_MESSAGE = "차단 일정을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_SPACE_GENERIC_FAILURE_MESSAGE = "공간 정보를 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 
 // RPC 내부에서 raise exception으로 던진 한국어 검증 메시지(코드 P0001)는 사용자에게 그대로 보여주고,
 // 그 외 네트워크/서버 오류는 사용자에게 기술적인 내용을 노출하지 않도록 안내 문구로 정리한다.
@@ -635,6 +682,19 @@ const toAdminBlockFailureMessage = (error: PostgrestError): string => {
 
   if (parts.length === 0) {
     return ADMIN_BLOCK_GENERIC_FAILURE_MESSAGE;
+  }
+  return parts.join(" / ");
+};
+
+const toAdminSpaceFailureMessage = (error: PostgrestError): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return ADMIN_SPACE_GENERIC_FAILURE_MESSAGE;
   }
   return parts.join(" / ");
 };

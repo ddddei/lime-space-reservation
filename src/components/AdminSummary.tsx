@@ -1,13 +1,18 @@
 import { LogOut } from "lucide-react";
 import { getAdminRoleLabel } from "../lib/displayLabels";
-import type { Admin } from "../types/reservation";
+import type { Admin, AdminApplication, AdminBlock, ParticipantUser } from "../types/reservation";
 
 type AdminSummaryProps = {
   readonly admin: Admin;
+  readonly users: readonly ParticipantUser[];
+  readonly applications: readonly AdminApplication[];
+  readonly adminBlocks: readonly AdminBlock[];
   readonly onLogout: () => void;
 };
 
-export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
+export function AdminSummary({ admin, users, applications, adminBlocks, onLogout }: AdminSummaryProps) {
+  const activeApplications = applications.filter((application) => application.sessionStatus !== "cancelled");
+  const activeBlocks = adminBlocks.filter((block) => block.isActive);
   return (
     <section className="ui-card min-w-0 rounded-2xl p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -25,6 +30,24 @@ export function AdminSummary({ admin, onLogout }: AdminSummaryProps) {
           관리자 로그아웃
         </button>
       </div>
+      <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <SummaryMetric label="전체 신청" value={`${activeApplications.length}건`} />
+        <SummaryMetric label="활성 차단 일정" value={`${activeBlocks.length}건`} />
+        <SummaryMetric label="참가자" value={`${users.length}명`} />
+        <SummaryMetric label="로그인 상태" value={admin.phone.trim().length > 0 ? "유지됨" : "확인 필요"} />
+      </div>
+      <p className="mt-3 rounded-lg bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
+        meetings/sessions 초기화는 관리자 화면에서 실행하지 않습니다. 필요 시 `supabase/manual-sql`의 SQL을 사용하세요.
+      </p>
     </section>
+  );
+}
+
+function SummaryMetric(props: { readonly label: string; readonly value: string }) {
+  return (
+    <div className="rounded-lg bg-[#F7FBF4] px-3 py-2">
+      <p className="text-xs font-bold text-[#819078]">{props.label}</p>
+      <p className="mt-1 text-lg font-black text-[#172014]">{props.value}</p>
+    </div>
   );
 }
