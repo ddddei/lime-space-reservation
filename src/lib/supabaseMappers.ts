@@ -136,6 +136,33 @@ export type AdminApplicationRow = {
   readonly updated_at: string;
 };
 
+export type MeetingRow = {
+  readonly meeting_id: string;
+  readonly applicant_participant_id: string;
+  readonly applicant_name: string;
+  readonly phone_last4: string | null;
+  readonly level: number | null;
+  readonly meeting_name: string;
+  readonly purpose: string | null;
+  readonly status: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+};
+
+export type ReservationSessionRow = {
+  readonly session_id: string;
+  readonly meeting_id: string;
+  readonly session_index: number | null;
+  readonly space_id: string;
+  readonly date: string;
+  readonly start_time: string;
+  readonly end_time: string;
+  readonly block_count: number | null;
+  readonly status: string | null;
+  readonly created_at: string;
+  readonly updated_at: string;
+};
+
 export const mapSpaceRows = (
   spaceRows: readonly SpaceRow[],
   operatingHourRows: readonly OperatingHourRow[],
@@ -273,6 +300,35 @@ export const mapReservationSubmissionRowsToSessions = (
     endTime: row.end_time,
     blockCount: row.block_count ?? 0,
     status: mapSessionStatus(row.session_status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+export const mapMeetingRows = (rows: readonly MeetingRow[]): readonly Meeting[] =>
+  rows.map((row) => ({
+    id: row.meeting_id,
+    applicantUserId: row.applicant_participant_id,
+    applicantName: row.applicant_name,
+    phoneLast4: row.phone_last4 ?? "",
+    level: mapUserLevel(row.level),
+    meetingName: row.meeting_name,
+    purpose: row.purpose ?? "",
+    status: mapMeetingStatus(row.status),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }));
+
+export const mapReservationSessionRows = (rows: readonly ReservationSessionRow[]): readonly ReservationSession[] =>
+  rows.map((row) => ({
+    id: row.session_id,
+    meetingId: row.meeting_id,
+    sessionIndex: row.session_index ?? 1,
+    spaceId: row.space_id,
+    date: row.date,
+    startTime: row.start_time,
+    endTime: row.end_time,
+    blockCount: row.block_count ?? 0,
+    status: mapSessionStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }));

@@ -5,8 +5,10 @@ import type {
   AdminParticipantRow,
   AdminVerificationRow,
   CancelReservationRow,
+  MeetingRow,
   OperatingHourRow,
   ParticipantVerificationRow,
+  ReservationSessionRow,
   SpaceImageRow,
   SpaceRow,
   SubmitReservationSessionInput,
@@ -35,6 +37,18 @@ type ReservationDatabase = {
       };
       readonly admin_blocks: {
         readonly Row: AdminBlockRow;
+        readonly Insert: never;
+        readonly Update: never;
+        readonly Relationships: [];
+      };
+      readonly meetings: {
+        readonly Row: MeetingRow;
+        readonly Insert: never;
+        readonly Update: never;
+        readonly Relationships: [];
+      };
+      readonly sessions: {
+        readonly Row: ReservationSessionRow;
         readonly Insert: never;
         readonly Update: never;
         readonly Relationships: [];
@@ -84,12 +98,22 @@ type ReservationDatabase = {
         };
         readonly Returns: AdminApplicationRow[];
       };
+      readonly get_participant_applications: {
+        readonly Args: {
+          readonly input_participant_id: string;
+        };
+        readonly Returns: AdminApplicationRow[];
+      };
       readonly get_admin_blocks: {
         readonly Args: {
           readonly input_admin_name: string;
           readonly input_admin_phone: string;
         };
         readonly Returns: AdminBlockRow[];
+      };
+      readonly get_public_active_sessions: {
+        readonly Args: Record<string, never>;
+        readonly Returns: ReservationSessionRow[];
       };
       readonly update_participant_reservation_approval: {
         readonly Args: {

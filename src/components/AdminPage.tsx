@@ -23,7 +23,7 @@ type AdminPageProps = {
 
 export function AdminPage(props: AdminPageProps) {
   return (
-    <div className="grid gap-4">
+    <div className="grid min-w-0 gap-4">
       <AdminUserChecklist
         users={props.users}
         applications={props.applications}

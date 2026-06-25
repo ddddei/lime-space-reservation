@@ -16,7 +16,7 @@ type MeetingFormProps = {
 
 export function MeetingForm(props: MeetingFormProps) {
   return (
-    <section className="rounded-[24px] border border-[#DDE8D6] bg-white p-4">
+    <section className="rounded-lg border border-[#DDE8D6] bg-white p-4 shadow-[0_8px_24px_rgba(23,32,20,0.08)]">
       <div className="mb-4">
         <h2 className="text-xl font-black text-[#172014]">모임명 입력</h2>
         <p className="mt-1 text-sm text-[#5B6856]">신청자는 로그인 정보로 자동 처리됩니다.</p>
@@ -36,7 +36,7 @@ export function MeetingForm(props: MeetingFormProps) {
             className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium outline-none focus:border-[#77B82A] focus:ring-2 focus:ring-[#77B82A]/20"
           />
           <span className="text-xs font-medium text-[#819078]">
-            테스트 신청은 모임명에 "테스트_삭제예정"을 포함해 실제 신청과 구분해 주세요.
+            테스트 신청은 모임명에 "테스트_취소예정"을 포함해 실제 신청과 구분해 주세요.
           </span>
         </label>
       </div>
@@ -73,17 +73,17 @@ export function MeetingForm(props: MeetingFormProps) {
         aria-busy={props.isSubmitting}
         className="mt-4 w-full rounded-lg bg-[#77B82A] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#5F9820] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
-        {props.isSubmitting ? "신청 중..." : "모임공간 신청하기"}
+        {props.isSubmitting ? "신청 중..." : "공간 예약 신청"}
       </button>
       {props.submitError !== undefined && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">
-          <p className="font-bold">신청 실패</p>
+          <p className="font-bold">예약 신청에 실패했습니다</p>
           <p className="mt-1">{props.submitError}</p>
         </div>
       )}
       {!props.saveValidation.canSave && (
         <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm text-[#C9443E]">
-          <p className="font-bold">저장할 수 없는 이유</p>
+          <p className="font-bold">신청할 수 없는 이유</p>
           <ul className="mt-2 list-inside list-disc">
             {props.saveValidation.reasons.map((reason) => (
               <li key={reason}>{reason}</li>

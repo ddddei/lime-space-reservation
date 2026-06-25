@@ -5,9 +5,10 @@ type SpaceLandingProps = {
   readonly spaces: readonly Space[];
   readonly selectedSpaceId: string;
   readonly onSelectSpace: (spaceId: string) => void;
+  readonly onOpenImages?: (space: Space, initialIndex: number) => void;
 };
 
-export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLandingProps) {
+export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace, onOpenImages }: SpaceLandingProps) {
   const activeSpaces = spaces
     .filter((space) => space.category === "lifestyle" && space.isActive && space.isPublicVisible)
     .sort((first, second) => {
@@ -28,7 +29,13 @@ export function SpaceLanding({ spaces, selectedSpaceId, onSelectSpace }: SpaceLa
       </div>
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {activeSpaces.map((space) => (
-          <SpaceCard key={space.id} space={space} isSelected={space.id === selectedSpaceId} onSelect={onSelectSpace} />
+          <SpaceCard
+            key={space.id}
+            space={space}
+            isSelected={space.id === selectedSpaceId}
+            onSelect={onSelectSpace}
+            onOpenImages={onOpenImages}
+          />
         ))}
       </div>
     </section>
