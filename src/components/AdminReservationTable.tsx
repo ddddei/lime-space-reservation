@@ -5,8 +5,9 @@ import type { AdminApplication, ReservationSession, Space } from "../types/reser
 type AdminReservationTableProps = {
   readonly applications: readonly AdminApplication[];
   readonly spaces: readonly Space[];
-  readonly readOnly: boolean;
-  readonly onDeleteSession: (sessionId: string) => void;
+  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
+  readonly onRefresh: () => void;
+  readonly isRefreshing: boolean;
 };
 
 type StatusFilter = ReservationSession["status"] | "all";
@@ -20,13 +21,16 @@ const statusOptions: readonly { readonly value: StatusFilter; readonly label: st
   { value: "cancelled", label: "취소됨" },
 ];
 
-export function AdminReservationTable({ applications, spaces, readOnly, onDeleteSession }: AdminReservationTableProps) {
+export function AdminReservationTable({ applications, spaces, onCancelMeeting, onRefresh, isRefreshing }: AdminReservationTableProps) {
   const [showAll, setShowAll] = useState(false);
   const [applicantFilter, setApplicantFilter] = useState("");
   const [spaceFilter, setSpaceFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
   const [meetingFilter, setMeetingFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [pendingCancelMeetingId, setPendingCancelMeetingId] = useState<string | undefined>();
+  const [cancellingMeetingId, setCancellingMeetingId] = useState<string | undefined>();
+  const [feedback, setFeedback] = useState<{ readonly type: "success" | "error"; readonly message: string } | undefined>();
 
   const rows = useMemo<readonly AdminApplication[]>(() => applications, [applications]);
 
@@ -42,6 +46,21 @@ export function AdminReservationTable({ applications, spaces, readOnly, onDelete
   });
   const visibleRows = showAll ? filteredRows : filteredRows.slice(0, defaultVisibleCount);
 
+  const handleConfirmCancel = (meetingId: string): void => {
+    setPendingCancelMeetingId(undefined);
+    setCancellingMeetingId(meetingId);
+    setFeedback(undefined);
+    void onCancelMeeting(meetingId)
+      .then((result) => {
+        setFeedback(
+          result.ok
+            ? { type: "success", message: "신청이 취소되었습니다." }
+            : { type: "error", message: result.message ?? "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." },
+        );
+      })
+      .finally(() => setCancellingMeetingId(undefined));
+  };
+
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -51,16 +70,38 @@ export function AdminReservationTable({ applications, spaces, readOnly, onDelete
             필터 결과 {filteredRows.length}건 중 {visibleRows.length}건 표시
           </p>
         </div>
-        {filteredRows.length > defaultVisibleCount && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={() => setShowAll((current) => !current)}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A]"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:text-[#819078]"
           >
-            {showAll ? "접기" : "더보기"}
+            {isRefreshing ? "불러오는 중..." : "새로고침"}
           </button>
-        )}
+          {filteredRows.length > defaultVisibleCount && (
+            <button
+              type="button"
+              onClick={() => setShowAll((current) => !current)}
+              className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A]"
+            >
+              {showAll ? "접기" : "더보기"}
+            </button>
+          )}
+        </div>
       </div>
+      {feedback !== undefined && (
+        <div
+          role="status"
+          className={`mt-3 rounded-lg border p-3 text-sm font-bold ${
+            feedback.type === "success"
+              ? "border-[#DDE8D6] bg-[#F1F8EC] text-[#178A46]"
+              : "border-[#F1C5C2] bg-[#FCEBEA] text-[#C9443E]"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
       <div className="mt-3 grid gap-2 md:grid-cols-[1fr_1fr_1fr_1fr_150px]">
         <input
           value={applicantFilter}
@@ -131,10 +172,12 @@ export function AdminReservationTable({ applications, spaces, readOnly, onDelete
           </thead>
           <tbody>
             {visibleRows.map((application) => {
+              const isCancelled = application.sessionStatus === "cancelled";
+              const isCancelling = cancellingMeetingId === application.meetingId;
               return (
                 <tr key={application.sessionId} className="border-b border-[#EBF2E7]">
                   <td className="py-3 pr-3">
-                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${application.sessionStatus === "cancelled" ? "bg-[#FCEBEA] text-[#C9443E]" : "bg-[#F1F8EC] text-[#5F9820]"}`}>
+                    <span className={`rounded-full px-2 py-1 text-xs font-bold ${isCancelled ? "bg-[#FCEBEA] text-[#C9443E]" : "bg-[#F1F8EC] text-[#5F9820]"}`}>
                       {getSessionStatusLabel(application.sessionStatus)}
                     </span>
                   </td>
@@ -150,12 +193,11 @@ export function AdminReservationTable({ applications, spaces, readOnly, onDelete
                   <td className="px-3">
                     <button
                       type="button"
-                      disabled={readOnly}
-                      onClick={() => onDeleteSession(application.sessionId)}
+                      disabled={isCancelled || isCancelling}
+                      onClick={() => setPendingCancelMeetingId(application.meetingId)}
                       className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
-                      title={readOnly ? "Supabase 삭제 연동은 다음 작업에서 처리합니다." : undefined}
                     >
-                      {readOnly ? "삭제 미연동" : "삭제"}
+                      {isCancelling ? "취소 중..." : isCancelled ? "취소됨" : "취소"}
                     </button>
                   </td>
                 </tr>
@@ -167,7 +209,40 @@ export function AdminReservationTable({ applications, spaces, readOnly, onDelete
           <p className="py-6 text-center text-sm font-semibold text-[#819078]">아직 신청 내역이 없습니다.</p>
         )}
       </div>
+      {pendingCancelMeetingId !== undefined && (
+        <CancelConfirmDialog
+          onCancel={() => setPendingCancelMeetingId(undefined)}
+          onConfirm={() => handleConfirmCancel(pendingCancelMeetingId)}
+        />
+      )}
     </section>
+  );
+}
+
+function CancelConfirmDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="admin-cancel-dialog-title">
+      <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
+        <h3 id="admin-cancel-dialog-title" className="text-lg font-black text-[#172014]">이 신청을 취소하시겠습니까?</h3>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">취소 후에는 복구할 수 없습니다.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
+          >
+            닫기
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
+          >
+            취소하기
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

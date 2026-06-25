@@ -4,6 +4,7 @@ import type {
   AdminBlockRow,
   AdminParticipantRow,
   AdminVerificationRow,
+  CancelReservationRow,
   OperatingHourRow,
   ParticipantVerificationRow,
   SpaceImageRow,
@@ -106,6 +107,15 @@ type ReservationDatabase = {
           readonly input_sessions: readonly SubmitReservationSessionInput[];
         };
         readonly Returns: AdminApplicationRow[] | null;
+      };
+      readonly cancel_reservation_application: {
+        readonly Args: {
+          readonly input_meeting_id: string;
+          readonly input_actor_type: string;
+          readonly input_actor_name: string;
+          readonly input_actor_phone: string;
+        };
+        readonly Returns: CancelReservationRow | CancelReservationRow[] | null;
       };
     };
     readonly Enums: Record<string, never>;

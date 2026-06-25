@@ -10,6 +10,8 @@ export const getMeetingStatusLabel = (status: MeetingStatus): string => {
       return "승인 완료";
     case "rejected":
       return "반려됨";
+    case "cancelled":
+      return "취소됨";
   }
 };
 

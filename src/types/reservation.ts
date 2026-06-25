@@ -1,6 +1,6 @@
 export type SpaceCategory = "youth-building" | "lifestyle";
 export type UserLevel = 1 | 2;
-export type MeetingStatus = "draft" | "submitted" | "approved" | "rejected";
+export type MeetingStatus = "draft" | "submitted" | "approved" | "rejected" | "cancelled";
 export type SessionStatus = "requested" | "confirmed" | "cancelled";
 
 export type OperatingHour = {

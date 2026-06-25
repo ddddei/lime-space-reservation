@@ -12,7 +12,7 @@ type MyMeetingsProps = {
   readonly adminBlocks: readonly AdminBlock[];
   readonly user: ParticipantUser;
   readonly onUpdateSession: (sessionId: string, values: SessionEditValues) => SaveValidationResult;
-  readonly onCancelSession: (sessionId: string) => void;
+  readonly onCancelMeeting: (meetingId: string) => Promise<{ readonly ok: boolean; readonly message?: string }>;
 };
 
 export type SessionEditValues = {
@@ -26,17 +26,47 @@ type EditingSession = {
   readonly values: SessionEditValues;
 };
 
-export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, user, onUpdateSession, onCancelSession }: MyMeetingsProps) {
+export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, user, onUpdateSession, onCancelMeeting }: MyMeetingsProps) {
   const [editingSession, setEditingSession] = useState<EditingSession | undefined>();
-  const [pendingCancelSessionId, setPendingCancelSessionId] = useState<string | undefined>();
+  const [pendingCancelMeetingId, setPendingCancelMeetingId] = useState<string | undefined>();
+  const [cancellingMeetingId, setCancellingMeetingId] = useState<string | undefined>();
+  const [cancelFeedback, setCancelFeedback] = useState<{ readonly type: "success" | "error"; readonly message: string } | undefined>();
   const [lastSaveResult, setLastSaveResult] = useState<SaveValidationResult | undefined>();
   const myMeetings = meetings.filter((meeting) => meeting.applicantUserId === userId);
+
+  const handleConfirmCancel = (meetingId: string): void => {
+    setPendingCancelMeetingId(undefined);
+    setCancellingMeetingId(meetingId);
+    setCancelFeedback(undefined);
+    void onCancelMeeting(meetingId)
+      .then((result) => {
+        setCancelFeedback(
+          result.ok
+            ? { type: "success", message: "신청이 취소되었습니다." }
+            : { type: "error", message: result.message ?? "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." },
+        );
+      })
+      .finally(() => setCancellingMeetingId(undefined));
+  };
   return (
     <section className="rounded-lg border border-[#DDE8D6] bg-white p-4">
       <h2 className="text-lg font-bold text-[#172014]">내 신청 확인/수정</h2>
+      {cancelFeedback !== undefined && (
+        <div
+          role="status"
+          className={`mt-3 rounded-lg border p-3 text-sm font-bold ${
+            cancelFeedback.type === "success"
+              ? "border-[#DDE8D6] bg-[#F1F8EC] text-[#178A46]"
+              : "border-[#F1C5C2] bg-[#FCEBEA] text-[#C9443E]"
+          }`}
+        >
+          {cancelFeedback.message}
+        </div>
+      )}
       <div className="mt-3 grid gap-3">
         {myMeetings.map((meeting) => {
           const meetingSessions = sessions.filter((session) => session.meetingId === meeting.id && session.status !== "cancelled");
+          const isCancellingMeeting = cancellingMeetingId === meeting.id;
           return (
             <article key={meeting.id} className="rounded-lg border border-[#EBF2E7] p-3">
               <div className="flex items-start justify-between gap-3">
@@ -87,10 +117,11 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
                           </button>
                           <button
                             type="button"
-                            onClick={() => setPendingCancelSessionId(session.id)}
-                            className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA]"
+                            disabled={isCancellingMeeting}
+                            onClick={() => setPendingCancelMeetingId(meeting.id)}
+                            className="rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-bold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:border-[#DDE8D6] disabled:text-[#819078]"
                           >
-                            삭제
+                            {isCancellingMeeting ? "취소 중..." : "취소"}
                           </button>
                         </div>
                       </div>
@@ -169,13 +200,10 @@ export function MyMeetings({ userId, meetings, sessions, spaces, adminBlocks, us
           );
         })}
       </div>
-      {pendingCancelSessionId !== undefined && (
-        <ConfirmDeleteDialog
-          onCancel={() => setPendingCancelSessionId(undefined)}
-          onConfirm={() => {
-            onCancelSession(pendingCancelSessionId);
-            setPendingCancelSessionId(undefined);
-          }}
+      {pendingCancelMeetingId !== undefined && (
+        <ConfirmCancelDialog
+          onCancel={() => setPendingCancelMeetingId(undefined)}
+          onConfirm={() => handleConfirmCancel(pendingCancelMeetingId)}
         />
       )}
     </section>
@@ -190,26 +218,26 @@ function sessionToEditValues(session: ReservationSession): SessionEditValues {
   };
 }
 
-function ConfirmDeleteDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
+function ConfirmCancelDialog({ onCancel, onConfirm }: { readonly onCancel: () => void; readonly onConfirm: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="delete-dialog-title">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-[#070A07]/65 p-4" role="dialog" aria-modal="true" aria-labelledby="cancel-dialog-title">
       <div className="w-full max-w-sm rounded-lg border border-[#DDE8D6] bg-white p-5 shadow-[0_16px_48px_rgba(7,10,7,0.24)]">
-        <h3 id="delete-dialog-title" className="text-lg font-black text-[#172014]">신청 삭제</h3>
-        <p className="mt-2 text-sm leading-6 text-[#5B6856]">이 신청을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.</p>
+        <h3 id="cancel-dialog-title" className="text-lg font-black text-[#172014]">이 신청을 취소하시겠습니까?</h3>
+        <p className="mt-2 text-sm leading-6 text-[#5B6856]">취소 후에는 복구할 수 없습니다.</p>
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
             onClick={onCancel}
             className="rounded-lg border border-[#DDE8D6] px-3 py-2 text-sm font-bold text-[#5B6856] hover:border-[#77B82A]"
           >
-            취소
+            닫기
           </button>
           <button
             type="button"
             onClick={onConfirm}
             className="rounded-lg bg-[#C9443E] px-3 py-2 text-sm font-extrabold text-white hover:bg-[#A93530]"
           >
-            삭제
+            취소하기
           </button>
         </div>
       </div>

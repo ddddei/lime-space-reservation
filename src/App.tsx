@@ -14,6 +14,7 @@ import {
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
 import {
+  cancelReservationApplication,
   canUseMockFallback,
   fetchAdminReadModel,
   fetchReservationReadModel,
@@ -41,6 +42,7 @@ export function App() {
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
+  const [isRefreshingAdminData, setIsRefreshingAdminData] = useState(false);
 
   useEffect(() => {
     let isCurrent = true;
@@ -94,6 +96,63 @@ export function App() {
     }
     setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
     return true;
+  };
+
+  const handleRefreshAdminData = async (): Promise<void> => {
+    if (authenticatedAdmin === undefined || isRefreshingAdminData) {
+      return;
+    }
+    setIsRefreshingAdminData(true);
+    const model = await fetchAdminReadModel({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone });
+    if (model !== undefined) {
+      setAdminUsers(model.participants);
+      setAdminSpaces(model.spaces);
+      setAdminApplications(model.applications);
+      setAdminBlocks(model.adminBlocks);
+    }
+    setIsRefreshingAdminData(false);
+  };
+
+  const handleCancelMeetingAsParticipant = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
+    if (authenticatedUser === undefined) {
+      return { ok: false, message: "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+    }
+    if (allowMockFallback) {
+      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+      return { ok: true };
+    }
+    const result = await cancelReservationApplication(meetingId, {
+      type: "participant",
+      name: authenticatedUser.name,
+      phone: authenticatedUser.phone,
+    });
+    if (result.status !== "ok") {
+      return { ok: false, message: result.message };
+    }
+    setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+    return { ok: true };
+  };
+
+  const handleCancelMeetingAsAdmin = async (meetingId: string): Promise<{ readonly ok: boolean; readonly message?: string }> => {
+    if (allowMockFallback) {
+      setSessions((current) => current.map((session) => session.meetingId === meetingId ? { ...session, status: "cancelled" } : session));
+      return { ok: true };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { ok: false, message: "신청 취소에 실패했습니다. 잠시 후 다시 시도해 주세요." };
+    }
+    const result = await cancelReservationApplication(meetingId, {
+      type: "admin",
+      name: authenticatedAdmin.name,
+      phone: authenticatedAdmin.phone,
+    });
+    if (result.status !== "ok") {
+      return { ok: false, message: result.message };
+    }
+    setAdminApplications((current) =>
+      current.map((application) => application.meetingId === meetingId ? { ...application, sessionStatus: "cancelled" } : application),
+    );
+    return { ok: true };
   };
 
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
@@ -171,6 +230,7 @@ export function App() {
             onChangeSelectedBlockTimes={setSelectedBlockTimes}
             onMeetingNameChange={setMeetingName}
             onLogout={() => setAuthenticatedUser(undefined)}
+            onCancelMeeting={handleCancelMeetingAsParticipant}
           />
         ) : mode === "user" ? (
           <section className="rounded-lg border border-[#DDE8D6] bg-white p-6 text-sm font-semibold text-[#5B6856]">
@@ -199,8 +259,10 @@ export function App() {
               onToggleApproval={handleToggleApproval}
               onUpdateSpace={(updatedSpace) => setAdminSpaces((current) => current.map((space) => space.id === updatedSpace.id ? updatedSpace : space))}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
-              onDeleteSession={(sessionId) => setSessions((current) => current.map((session) => session.id === sessionId ? { ...session, status: "cancelled" } : session))}
+              onCancelMeeting={handleCancelMeetingAsAdmin}
               onAddBlock={(block) => setAdminBlocks((current) => [block, ...current])}
+              onRefresh={handleRefreshAdminData}
+              isRefreshing={isRefreshingAdminData}
             />
           </div>
         )}
