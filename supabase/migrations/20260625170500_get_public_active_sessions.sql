@@ -1,3 +1,5 @@
+drop function if exists public.get_public_active_sessions();
+
 create or replace function public.get_public_active_sessions()
 returns table (
   session_id text,
@@ -22,8 +24,8 @@ as $$
     s.session_index,
     s.space_id::text,
     s.date,
-    s.start_time,
-    s.end_time,
+    s.start_time::time as start_time,
+    s.end_time::time as end_time,
     s.block_count,
     s.status,
     s.created_at,
