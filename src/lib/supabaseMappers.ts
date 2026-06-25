@@ -1,7 +1,7 @@
 import type { Admin, AdminBlock, OperatingHour, ParticipantUser, Space, SpaceCategory, UserLevel } from "../types/reservation";
 
 export type SpaceRow = {
-  readonly id: string;
+  readonly space_id: string;
   readonly name: string;
   readonly category: string;
   readonly capacity: number;
@@ -26,7 +26,7 @@ export type OperatingHourRow = {
 };
 
 export type AdminBlockRow = {
-  readonly id: string;
+  readonly block_id: string;
   readonly space_id: string;
   readonly date: string;
   readonly start_time: string;
@@ -38,9 +38,8 @@ export type AdminBlockRow = {
 };
 
 export type ParticipantVerificationRow = {
-  readonly id: string;
+  readonly participant_id: string;
   readonly name: string;
-  readonly phone?: string | null;
   readonly phone_last4: string | null;
   readonly level: number | null;
   readonly has_plan: boolean | null;
@@ -49,16 +48,13 @@ export type ParticipantVerificationRow = {
   readonly has_admin_approval: boolean | null;
   readonly max_blocks: number | null;
   readonly memo: string | null;
-  readonly is_active: boolean | null;
 };
 
 export type AdminVerificationRow = {
-  readonly id: string;
+  readonly admin_id: string;
   readonly name: string;
-  readonly phone?: string | null;
   readonly phone_last4: string | null;
   readonly role: string | null;
-  readonly is_active: boolean | null;
 };
 
 export const mapSpaceRows = (
@@ -72,14 +68,14 @@ export const mapSpaceRows = (
   }
 
   return spaceRows.map((row) => ({
-    id: row.id,
+    id: row.space_id,
     name: row.name,
     category: mapSpaceCategory(row.category),
     capacity: row.capacity,
     description: row.description ?? "",
     imageUrl: row.image_url ?? "",
     features: row.features ?? [],
-    operatingHours: [...(hoursBySpaceId.get(row.id) ?? [])].sort((first, second) => first.dayOfWeek - second.dayOfWeek),
+    operatingHours: [...(hoursBySpaceId.get(row.space_id) ?? [])].sort((first, second) => first.dayOfWeek - second.dayOfWeek),
     isActive: row.is_active,
     isPublicVisible: row.is_public_visible,
     requiresAdminUnlock: row.requires_admin_unlock ?? undefined,
@@ -91,7 +87,7 @@ export const mapSpaceRows = (
 
 export const mapAdminBlockRows = (rows: readonly AdminBlockRow[]): readonly AdminBlock[] =>
   rows.map((row) => ({
-    id: row.id,
+    id: row.block_id,
     spaceId: row.space_id,
     date: row.date,
     startTime: row.start_time,
@@ -103,10 +99,10 @@ export const mapAdminBlockRows = (rows: readonly AdminBlockRow[]): readonly Admi
   }));
 
 export const mapParticipantVerificationRow = (row: ParticipantVerificationRow, submittedPhone: string): ParticipantUser => ({
-  id: row.id,
+  id: row.participant_id,
   name: row.name,
-  phone: row.phone ?? submittedPhone,
-  phoneLast4: row.phone_last4 ?? getPhoneLast4(row.phone ?? submittedPhone),
+  phone: submittedPhone,
+  phoneLast4: row.phone_last4 ?? getPhoneLast4(submittedPhone),
   level: mapUserLevel(row.level),
   hasPlan: row.has_plan ?? false,
   hasBudget: row.has_budget ?? false,
@@ -114,16 +110,16 @@ export const mapParticipantVerificationRow = (row: ParticipantVerificationRow, s
   hasAdminApproval: row.has_admin_approval ?? false,
   maxBlocks: row.max_blocks ?? 0,
   memo: row.memo ?? "",
-  isActive: row.is_active ?? true,
+  isActive: true,
 });
 
 export const mapAdminVerificationRow = (row: AdminVerificationRow, submittedPhone: string): Admin => ({
-  id: row.id,
+  id: row.admin_id,
   name: row.name,
-  phone: row.phone ?? submittedPhone,
-  phoneLast4: row.phone_last4 ?? getPhoneLast4(row.phone ?? submittedPhone),
+  phone: submittedPhone,
+  phoneLast4: row.phone_last4 ?? getPhoneLast4(submittedPhone),
   role: row.role ?? "admin",
-  isActive: row.is_active ?? true,
+  isActive: true,
 });
 
 export const firstParticipantVerificationRow = (

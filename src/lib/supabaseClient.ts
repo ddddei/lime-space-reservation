@@ -33,15 +33,15 @@ type ReservationDatabase = {
     readonly Functions: {
       readonly verify_participant: {
         readonly Args: {
-          readonly p_name: string;
-          readonly p_phone: string;
+          readonly input_name: string;
+          readonly input_phone: string;
         };
         readonly Returns: ParticipantVerificationRow | ParticipantVerificationRow[] | null;
       };
       readonly verify_admin: {
         readonly Args: {
-          readonly p_name: string;
-          readonly p_phone: string;
+          readonly input_name: string;
+          readonly input_phone: string;
         };
         readonly Returns: AdminVerificationRow | AdminVerificationRow[] | null;
       };

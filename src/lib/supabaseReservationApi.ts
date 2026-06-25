@@ -13,6 +13,7 @@ import {
   mapSpaceRows,
 } from "./supabaseMappers";
 import type { AdminBlock, Space } from "../types/reservation";
+import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
   readonly spaces: readonly Space[];
@@ -26,16 +27,22 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
 
   const spacesResponse = await supabaseClient
     .from("spaces")
-    .select("id,name,category,capacity,description,image_url,features,is_active,is_public_visible,requires_admin_unlock,parent_space_name,admin_memo,sort_order")
+    .select("space_id,name,category,capacity,description,image_url,features,is_active,is_public_visible,requires_admin_unlock,parent_space_name,admin_memo,sort_order")
     .eq("is_active", true)
     .eq("is_public_visible", true)
     .order("sort_order", { ascending: true });
 
-  if (spacesResponse.error !== null || spacesResponse.data.length === 0) {
+  if (spacesResponse.error !== null) {
+    warnSupabaseFallback("spaces 조회", spacesResponse.error);
     return undefined;
   }
 
-  const publicSpaceIds = spacesResponse.data.map((space) => space.id);
+  if (spacesResponse.data.length === 0) {
+    console.warn("[Supabase fallback] spaces 조회 결과가 비어 있어 mock 데이터를 사용합니다.");
+    return undefined;
+  }
+
+  const publicSpaceIds = spacesResponse.data.map((space) => space.space_id);
   const [operatingHoursResponse, adminBlocksResponse] = await Promise.all([
     supabaseClient
       .from("operating_hours")
@@ -44,13 +51,19 @@ export const fetchReservationReadModel = async (): Promise<ReservationReadModel 
       .order("day_of_week", { ascending: true }),
     supabaseClient
       .from("admin_blocks")
-      .select("id,space_id,date,start_time,end_time,reason,created_by,is_active,created_at")
+      .select("block_id,space_id,date,start_time,end_time,reason,created_by,is_active,created_at")
       .eq("is_active", true)
       .in("space_id", publicSpaceIds)
       .order("date", { ascending: true }),
   ]);
 
-  if (operatingHoursResponse.error !== null || adminBlocksResponse.error !== null) {
+  if (operatingHoursResponse.error !== null) {
+    warnSupabaseFallback("operating_hours 조회", operatingHoursResponse.error);
+    return undefined;
+  }
+
+  if (adminBlocksResponse.error !== null) {
+    warnSupabaseFallback("admin_blocks 조회", adminBlocksResponse.error);
     return undefined;
   }
 
@@ -74,11 +87,12 @@ export const verifyParticipantLogin = async (
   }
 
   const response = await supabaseClient.rpc("verify_participant", {
-    p_name: name.trim(),
-    p_phone: phone.trim(),
+    input_name: name.trim(),
+    input_phone: phone.trim(),
   });
 
   if (response.error !== null) {
+    warnSupabaseFallback("verify_participant RPC", response.error);
     return findParticipantByNameAndPhone(name, phone, initialUsers);
   }
 
@@ -106,11 +120,12 @@ export const verifyAdminLogin = async (
   }
 
   const response = await supabaseClient.rpc("verify_admin", {
-    p_name: name.trim(),
-    p_phone: phone.trim(),
+    input_name: name.trim(),
+    input_phone: phone.trim(),
   });
 
   if (response.error !== null) {
+    warnSupabaseFallback("verify_admin RPC", response.error);
     return findAdminByNameAndPhone(name, phone, initialAdmins);
   }
 
@@ -127,4 +142,11 @@ export const verifyAdminLogin = async (
     admin: mapAdminVerificationRow(row, phone),
     message: "관리자 확인이 완료되었습니다.",
   };
+};
+
+const warnSupabaseFallback = (label: string, error: PostgrestError): void => {
+  console.warn(`[Supabase fallback] ${label} 실패로 mock 데이터를 사용합니다.`, {
+    message: error.message,
+    details: error.details,
+  });
 };
