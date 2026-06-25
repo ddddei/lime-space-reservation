@@ -1,28 +1,30 @@
 import { useState, type FormEvent } from "react";
-import { findAdminByNameAndPhone } from "../lib/participantAuth";
 import type { AdminAuthResult } from "../lib/participantAuth";
+import { verifyAdminLogin } from "../lib/supabaseReservationApi";
 import type { Admin } from "../types/reservation";
 
 type AdminLoginProps = {
-  readonly admins: readonly Admin[];
   readonly onAuthenticated: (admin: Admin) => void;
 };
 
-export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
+export function AdminLogin({ onAuthenticated }: AdminLoginProps) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [authResult, setAuthResult] = useState<AdminAuthResult | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
     if (name.trim().length === 0 || phone.trim().length === 0) {
       return;
     }
-    const result = findAdminByNameAndPhone(name, phone, admins);
-    setAuthResult(result);
-    if (result.status === "found") {
-      onAuthenticated(result.admin);
-    }
+    setIsSubmitting(true);
+    void verifyAdminLogin(name, phone).then((result) => {
+      setAuthResult(result);
+      if (result.status === "found") {
+        onAuthenticated(result.admin);
+      }
+    }).finally(() => setIsSubmitting(false));
   };
 
   return (
@@ -71,9 +73,10 @@ export function AdminLogin({ admins, onAuthenticated }: AdminLoginProps) {
       <button
         type="submit"
         disabled={name.trim().length === 0 || phone.trim().length === 0}
+        aria-busy={isSubmitting}
         className="rounded-lg bg-[#172014] px-4 py-3 text-sm font-extrabold text-white transition hover:bg-[#2F3B2A] focus:outline-none focus:ring-2 focus:ring-[#77B82A]/30 disabled:cursor-not-allowed disabled:bg-[#B9C9AE]"
       >
-        관리자 로그인
+        {isSubmitting ? "확인 중" : "관리자 로그인"}
       </button>
     </form>
   );
