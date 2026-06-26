@@ -2,7 +2,7 @@ import { AdminBlockForm, type AdminBlockFormInput } from "./AdminBlockForm";
 import { AdminReservationTable } from "./AdminReservationTable";
 import { AdminUserChecklist } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
-import type { AdminApplication, AdminBlock, ParticipantUser, Space } from "../types/reservation";
+import type { AdminApplication, AdminBlock, ParticipantUser, Space, UserLevel } from "../types/reservation";
 
 type AdminPageProps = {
   readonly users: readonly ParticipantUser[];
@@ -11,8 +11,8 @@ type AdminPageProps = {
   readonly adminBlocks: readonly AdminBlock[];
   readonly isRefreshingApplications: boolean;
   readonly refreshApplicationsError?: string;
-  readonly onUpdateUser: (user: ParticipantUser) => void;
   readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
+  readonly onUpdateLevel: (user: ParticipantUser, nextLevel: UserLevel) => Promise<boolean>;
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: Space) => void;
   readonly onRefreshApplications: () => void;
@@ -28,9 +28,9 @@ export function AdminPage(props: AdminPageProps) {
       <AdminUserChecklist
         users={props.users}
         applications={props.applications}
-        readOnly={true}
-        onUpdateUser={props.onUpdateUser}
+        readOnly={false}
         onToggleApproval={props.onToggleApproval}
+        onUpdateLevel={props.onUpdateLevel}
       />
       <AdminReservationTable
         applications={props.applications}

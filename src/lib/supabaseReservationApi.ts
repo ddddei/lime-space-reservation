@@ -26,7 +26,7 @@ import {
   type SubmitReservationSessionInput,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "../types/reservation";
+import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
@@ -373,6 +373,10 @@ export type ApprovalUpdateResult =
   | { readonly status: "ok"; readonly user: ParticipantUser }
   | { readonly status: "error"; readonly message: string };
 
+export type ParticipantLevelUpdateResult =
+  | { readonly status: "ok"; readonly user: ParticipantUser }
+  | { readonly status: "error"; readonly message: string };
+
 export type AdminBlockMutationInput = {
   readonly id?: string;
   readonly spaceId: string;
@@ -419,6 +423,35 @@ export const updateParticipantReservationApproval = async (
   const row = firstAdminParticipantRow(response.data);
   if (row === undefined) {
     return { status: "error", message: "예약 승인 상태를 변경할 수 없습니다." };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export const updateParticipantLevel = async (
+  admin: AdminCredentials,
+  participantId: string,
+  level: UserLevel,
+): Promise<ParticipantLevelUpdateResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("update_participant_level", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_participant_id: participantId,
+    input_level: level,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("update_participant_level RPC", response.error);
+    return { status: "error", message: "Level을 변경할 수 없습니다." };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: "Level을 변경할 수 없습니다." };
   }
 
   return { status: "ok", user: mapAdminParticipantRows([row])[0] };

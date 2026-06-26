@@ -1,18 +1,17 @@
 import { useState } from "react";
-import { LEVEL_MAX_BLOCKS } from "../data/settings";
 import type { AdminApplication, ParticipantUser, UserLevel } from "../types/reservation";
 
 type AdminUserChecklistProps = {
   readonly users: readonly ParticipantUser[];
   readonly applications: readonly AdminApplication[];
   readonly readOnly: boolean;
-  readonly onUpdateUser: (user: ParticipantUser) => void;
   readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
+  readonly onUpdateLevel: (user: ParticipantUser, nextLevel: UserLevel) => Promise<boolean>;
 };
 
 const defaultVisibleCount = 6;
 
-export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser, onToggleApproval }: AdminUserChecklistProps) {
+export function AdminUserChecklist({ users, applications, readOnly, onToggleApproval, onUpdateLevel }: AdminUserChecklistProps) {
   const [showAll, setShowAll] = useState(false);
   const [savingIds, setSavingIds] = useState<readonly string[]>([]);
   const [errorsById, setErrorsById] = useState<Readonly<Record<string, string | undefined>>>({});
@@ -26,6 +25,23 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
       .then((success) => {
         if (!success) {
           setErrorsById((current) => ({ ...current, [user.id]: "예약 승인 상태를 변경하지 못했습니다." }));
+        }
+      })
+      .finally(() => {
+        setSavingIds((current) => current.filter((id) => id !== user.id));
+      });
+  };
+
+  const handleLevelChange = (user: ParticipantUser, nextLevel: UserLevel): void => {
+    if (nextLevel === user.level) {
+      return;
+    }
+    setSavingIds((current) => [...current, user.id]);
+    setErrorsById((current) => ({ ...current, [user.id]: undefined }));
+    void onUpdateLevel(user, nextLevel)
+      .then((success) => {
+        if (!success) {
+          setErrorsById((current) => ({ ...current, [user.id]: "Level을 변경하지 못했습니다." }));
         }
       })
       .finally(() => {
@@ -103,9 +119,15 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
                   <td className="px-3">
                     <select
                       value={user.level}
-                      disabled={readOnly}
-                      onChange={(event) => updateLevel(user, Number(event.target.value), onUpdateUser)}
-                      className="rounded border border-[#DDE8D6] px-2 py-1"
+                      disabled={readOnly || isSaving}
+                      onChange={(event) => {
+                        const nextLevel = toUserLevel(event.target.value);
+                        if (nextLevel !== undefined) {
+                          handleLevelChange(user, nextLevel);
+                        }
+                      }}
+                      className="rounded border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#172014] disabled:bg-[#F1F8EC] disabled:text-[#819078]"
+                      aria-label={`${user.name} Level`}
                     >
                       <option value={1}>Level 1</option>
                       <option value={2}>Level 2</option>
@@ -130,12 +152,15 @@ export function AdminUserChecklist({ users, applications, readOnly, onUpdateUser
   );
 }
 
-function updateLevel(user: ParticipantUser, value: number, onUpdateUser: (user: ParticipantUser) => void): void {
-  if (value === 1 || value === 2) {
-    const level: UserLevel = value;
-    onUpdateUser({ ...user, level, maxBlocks: LEVEL_MAX_BLOCKS[level] });
+const toUserLevel = (value: string): UserLevel | undefined => {
+  if (value === "1") {
+    return 1;
   }
-}
+  if (value === "2") {
+    return 2;
+  }
+  return undefined;
+};
 
 function getDocumentSummary(user: ParticipantUser): string {
   const missing = [

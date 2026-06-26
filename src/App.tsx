@@ -7,6 +7,7 @@ import { UserReservationFlow, type SessionActionResult } from "./components/User
 import { initialAdminBlocks } from "./data/mockAdminBlocks";
 import { initialMeetings } from "./data/mockMeetings";
 import { initialSessions } from "./data/mockSessions";
+import { LEVEL_MAX_BLOCKS } from "./data/settings";
 import { initialSpaces } from "./data/spaces";
 import { initialUsers } from "./data/mockUsers";
 import {
@@ -22,12 +23,13 @@ import {
   fetchReservationReadModel,
   saveAdminBlock,
   saveAdminSpace,
+  updateParticipantLevel,
   updateParticipantReservationApproval,
   type AdminBlockMutationInput,
   type AdminSpaceMutationInput,
 } from "./lib/supabaseReservationApi";
 import { getSelectedTimeRange } from "./lib/timeSelection";
-import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space } from "./types/reservation";
+import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
 
 type AppMode = "user" | "admin";
 type ParticipantReservationSnapshot = {
@@ -222,6 +224,29 @@ export function App() {
       return false;
     }
     setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+    return true;
+  };
+
+  const handleUpdateParticipantLevel = async (user: ParticipantUser, nextLevel: UserLevel): Promise<boolean> => {
+    if (allowMockFallback) {
+      setAdminUsers((current) => current.map((item) => (
+        item.id === user.id ? { ...item, level: nextLevel, maxBlocks: LEVEL_MAX_BLOCKS[nextLevel] } : item
+      )));
+      return true;
+    }
+    if (authenticatedAdmin === undefined) {
+      return false;
+    }
+    const result = await updateParticipantLevel(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      user.id,
+      nextLevel,
+    );
+    if (result.status !== "ok") {
+      return false;
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+    void refreshAdminReadModel();
     return true;
   };
 
@@ -486,8 +511,8 @@ export function App() {
               adminBlocks={adminBlocks}
               isRefreshingApplications={isRefreshingAdminApplications}
               refreshApplicationsError={effectiveRefreshAdminApplicationsError}
-              onUpdateUser={(updatedUser) => setAdminUsers((current) => current.map((user) => user.id === updatedUser.id ? updatedUser : user))}
               onToggleApproval={handleToggleApproval}
+              onUpdateLevel={handleUpdateParticipantLevel}
               onSaveSpace={handleSaveAdminSpace}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
               onRefreshApplications={() => {
