@@ -3,6 +3,7 @@ import { AdminReservationTable } from "./AdminReservationTable";
 import { AdminUserChecklist, type CreateParticipantFormInput } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
 import type { AdminApplication, AdminBlock, ParticipantUser, Space, UserLevel } from "../types/reservation";
+import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 
 type ParticipantMutationResult =
   | { readonly status: "ok" }
@@ -22,7 +23,7 @@ type AdminPageProps = {
   readonly onDeactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
-  readonly onAddSpace: (space: Space) => void;
+  readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onRefreshApplications: () => void;
   readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly canManageAdminBlocks: boolean;

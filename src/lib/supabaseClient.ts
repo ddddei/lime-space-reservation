@@ -111,6 +111,32 @@ type ReservationDatabase = {
         };
         readonly Returns: SpaceRow[] | null;
       };
+      readonly create_admin_space: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_space_id: string;
+          readonly input_name: string;
+          readonly input_category: string;
+          readonly input_capacity: number;
+          readonly input_description: string;
+          readonly input_image_url: string;
+          readonly input_features: readonly string[];
+          readonly input_is_active: boolean;
+          readonly input_is_public_visible: boolean;
+          readonly input_requires_admin_unlock: boolean;
+          readonly input_parent_space_name: string;
+          readonly input_admin_memo: string;
+          readonly input_sort_order: number;
+          readonly input_operating_hours: readonly {
+            readonly day_of_week: number;
+            readonly open_time: string;
+            readonly close_time: string;
+            readonly is_closed: boolean;
+          }[];
+        };
+        readonly Returns: SpaceRow[] | null;
+      };
       readonly get_admin_applications: {
         readonly Args: {
           readonly input_admin_name: string;

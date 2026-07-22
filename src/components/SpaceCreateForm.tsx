@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { allDayHours, chitChatHours, teaPartyHours, youthBuildingHours } from "../data/operatingHours";
-import type { OperatingHour, Space, SpaceCategory } from "../types/reservation";
+import type { OperatingHour, SpaceCategory } from "../types/reservation";
+import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
+
+type SpaceCreateFormResult = { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
 
 type SpaceCreateFormProps = {
   readonly nextSortOrder: number;
-  readonly onAddSpace: (space: Space) => void;
+  readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<SpaceCreateFormResult>;
 };
 
 type OperatingHoursPreset = "all-day" | "youth-building" | "chitchat" | "tea-party";
@@ -29,6 +32,8 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
   const [requiresAdminUnlock, setRequiresAdminUnlock] = useState(false);
   const [adminMemo, setAdminMemo] = useState("");
   const [operatingPreset, setOperatingPreset] = useState<OperatingHoursPreset>("all-day");
+  const [isSaving, setIsSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | undefined>(undefined);
 
   return (
     <div className="rounded-lg border border-[#EBF2E7] bg-[#F7FBF4] p-3">
@@ -72,11 +77,18 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
           <textarea value={adminMemo} onChange={(event) => setAdminMemo(event.target.value)} rows={2} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium" />
         </label>
       </div>
+      {errorMessage !== undefined && (
+        <div className="mt-3 rounded-lg border border-[#F1C5C2] bg-[#FCEBEA] p-3 text-sm font-bold text-[#C9443E]" role="alert">
+          {errorMessage}
+        </div>
+      )}
       <button
         type="button"
-        disabled={name.trim().length === 0 || capacity < 1}
+        disabled={name.trim().length === 0 || capacity < 1 || isSaving}
         onClick={() => {
-          onAddSpace({
+          setIsSaving(true);
+          setErrorMessage(undefined);
+          void onAddSpace({
             id: `space-${Date.now()}`,
             name: name.trim(),
             category,
@@ -91,13 +103,19 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
             parentSpaceName: parentSpaceName.trim() || undefined,
             adminMemo: adminMemo.trim() || undefined,
             sortOrder: nextSortOrder,
+          }).then((result) => {
+            setIsSaving(false);
+            if (result.status === "error") {
+              setErrorMessage(result.message);
+              return;
+            }
+            setName("");
+            setDescription("");
           });
-          setName("");
-          setDescription("");
         }}
         className="mt-3 rounded-lg bg-[#77B82A] px-4 py-2 text-sm font-extrabold text-white disabled:bg-[#B9C9AE]"
       >
-        공간 추가
+        {isSaving ? "저장 중" : "공간 추가"}
       </button>
     </div>
   );
