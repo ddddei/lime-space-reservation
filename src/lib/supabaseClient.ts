@@ -174,6 +174,25 @@ type ReservationDatabase = {
         };
         readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
       };
+      readonly create_admin_participant: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_name: string;
+          readonly input_phone: string;
+          readonly input_level: number;
+          readonly input_memo: string | null;
+        };
+        readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
+      readonly deactivate_admin_participant: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_participant_id: string;
+        };
+        readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
       readonly submit_reservation_application: {
         readonly Args: {
           readonly input_participant_id: string;

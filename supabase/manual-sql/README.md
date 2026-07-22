@@ -4,6 +4,8 @@
 
 비밀키, service role key, DB password는 SQL 파일에 넣지 않습니다.
 
+일상적인 참가자 1~2명 추가/제외는 이제 관리자 화면(`참여자 체크리스트` > `참가자 추가` / `비활성`)에서 바로 처리할 수 있습니다. `01_upsert_participants.sql`은 운영 오픈이나 엑셀 명단을 통째로 반영해야 하는 대량 반영 시에만 사용하세요.
+
 ## 파일
 
 1. `01_upsert_participants.sql`

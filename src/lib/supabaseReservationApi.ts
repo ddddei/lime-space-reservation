@@ -377,6 +377,17 @@ export type ParticipantLevelUpdateResult =
   | { readonly status: "ok"; readonly user: ParticipantUser }
   | { readonly status: "error"; readonly message: string };
 
+export type CreateAdminParticipantInput = {
+  readonly name: string;
+  readonly phone: string;
+  readonly level: UserLevel;
+  readonly memo?: string;
+};
+
+export type AdminParticipantMutationResult =
+  | { readonly status: "ok"; readonly user: ParticipantUser }
+  | { readonly status: "error"; readonly message: string };
+
 export type AdminBlockMutationInput = {
   readonly id?: string;
   readonly spaceId: string;
@@ -452,6 +463,63 @@ export const updateParticipantLevel = async (
   const row = firstAdminParticipantRow(response.data);
   if (row === undefined) {
     return { status: "error", message: "Level을 변경할 수 없습니다." };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export const createAdminParticipant = async (
+  admin: AdminCredentials,
+  input: CreateAdminParticipantInput,
+): Promise<AdminParticipantMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("create_admin_participant", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_name: input.name.trim(),
+    input_phone: input.phone.trim(),
+    input_level: input.level,
+    input_memo: input.memo?.trim() ?? null,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("create_admin_participant RPC", response.error);
+    return { status: "error", message: toAdminParticipantFailureMessage(response.error, ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export const deactivateAdminParticipant = async (
+  admin: AdminCredentials,
+  participantId: string,
+): Promise<AdminParticipantMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("deactivate_admin_participant", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_participant_id: participantId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("deactivate_admin_participant RPC", response.error);
+    return { status: "error", message: toAdminParticipantFailureMessage(response.error, ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE };
   }
 
   return { status: "ok", user: mapAdminParticipantRows([row])[0] };
@@ -677,6 +745,23 @@ export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
 const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_BLOCK_GENERIC_FAILURE_MESSAGE = "차단 일정을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_SPACE_GENERIC_FAILURE_MESSAGE = "공간 정보를 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE = "참가자를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE = "참가자를 비활성화할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+
+// create_admin_participant / deactivate_admin_participant RPC가 raise exception으로 던진
+// 한국어 검증 메시지(예: '이미 등록된 참가자입니다.')를 그대로 노출한다.
+const toAdminParticipantFailureMessage = (error: PostgrestError, genericMessage: string): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return genericMessage;
+  }
+  return parts.join(" / ");
+};
 
 // RPC 내부에서 raise exception으로 던진 한국어 검증 메시지(코드 P0001)는 사용자에게 그대로 보여주고,
 // 그 외 네트워크/서버 오류는 사용자에게 기술적인 내용을 노출하지 않도록 안내 문구로 정리한다.
