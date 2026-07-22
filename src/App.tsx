@@ -17,7 +17,9 @@ import {
 import {
   canUseMockFallback,
   cancelReservationSession,
+  createAdminParticipant,
   deactivateAdminBlock,
+  deactivateAdminParticipant,
   fetchAdminReadModel,
   fetchParticipantReservationReadModel,
   fetchReservationReadModel,
@@ -28,6 +30,7 @@ import {
   type AdminBlockMutationInput,
   type AdminSpaceMutationInput,
 } from "./lib/supabaseReservationApi";
+import type { CreateParticipantFormInput } from "./components/AdminUserChecklist";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
 
@@ -248,6 +251,66 @@ export function App() {
     setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
     void refreshAdminReadModel();
     return true;
+  };
+
+  const handleCreateParticipant = async (
+    input: CreateParticipantFormInput,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 참가자를 추가할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await createAdminParticipant({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, input);
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminUsers((current) => {
+      const exists = current.some((item) => item.id === result.user.id);
+      return exists ? current.map((item) => (item.id === result.user.id ? result.user : item)) : [...current, result.user];
+    });
+    void refreshAdminReadModel();
+    return { status: "ok" };
+  };
+
+  const handleDeactivateParticipant = async (
+    user: ParticipantUser,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 참가자를 비활성화할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await deactivateAdminParticipant({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, user.id);
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === result.user.id ? result.user : item)));
+    void refreshAdminReadModel();
+    return { status: "ok" };
+  };
+
+  const handleReactivateParticipant = async (
+    user: ParticipantUser,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 참가자를 재활성화할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await createAdminParticipant(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      { name: user.name, phone: user.phone, level: user.level, memo: user.memo },
+    );
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === result.user.id ? result.user : item)));
+    void refreshAdminReadModel();
+    return { status: "ok" };
   };
 
   const markSessionCancelled = (sessionId: string, meeting?: Meeting): void => {
@@ -513,6 +576,10 @@ export function App() {
               refreshApplicationsError={effectiveRefreshAdminApplicationsError}
               onToggleApproval={handleToggleApproval}
               onUpdateLevel={handleUpdateParticipantLevel}
+              canManageParticipants={!allowMockFallback}
+              onCreateParticipant={handleCreateParticipant}
+              onDeactivateParticipant={handleDeactivateParticipant}
+              onReactivateParticipant={handleReactivateParticipant}
               onSaveSpace={handleSaveAdminSpace}
               onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
               onRefreshApplications={() => {

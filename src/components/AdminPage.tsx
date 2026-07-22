@@ -1,8 +1,12 @@
 import { AdminBlockForm, type AdminBlockFormInput } from "./AdminBlockForm";
 import { AdminReservationTable } from "./AdminReservationTable";
-import { AdminUserChecklist } from "./AdminUserChecklist";
+import { AdminUserChecklist, type CreateParticipantFormInput } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
 import type { AdminApplication, AdminBlock, ParticipantUser, Space, UserLevel } from "../types/reservation";
+
+type ParticipantMutationResult =
+  | { readonly status: "ok" }
+  | { readonly status: "error"; readonly message: string };
 
 type AdminPageProps = {
   readonly users: readonly ParticipantUser[];
@@ -13,6 +17,10 @@ type AdminPageProps = {
   readonly refreshApplicationsError?: string;
   readonly onToggleApproval: (user: ParticipantUser, nextValue: boolean) => Promise<boolean>;
   readonly onUpdateLevel: (user: ParticipantUser, nextLevel: UserLevel) => Promise<boolean>;
+  readonly canManageParticipants: boolean;
+  readonly onCreateParticipant: (input: CreateParticipantFormInput) => Promise<ParticipantMutationResult>;
+  readonly onDeactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
+  readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: Space) => void;
   readonly onRefreshApplications: () => void;
@@ -29,8 +37,12 @@ export function AdminPage(props: AdminPageProps) {
         users={props.users}
         applications={props.applications}
         readOnly={false}
+        canManageParticipants={props.canManageParticipants}
         onToggleApproval={props.onToggleApproval}
         onUpdateLevel={props.onUpdateLevel}
+        onCreateParticipant={props.onCreateParticipant}
+        onDeactivateParticipant={props.onDeactivateParticipant}
+        onReactivateParticipant={props.onReactivateParticipant}
       />
       <AdminReservationTable
         applications={props.applications}
