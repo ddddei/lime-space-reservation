@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { Eye, EyeOff, Save, X } from "lucide-react";
 import { getSpaceCategoryLabel } from "../lib/displayLabels";
+import { SpaceCreateForm } from "./SpaceCreateForm";
 import type { Space, SpaceImage } from "../types/reservation";
+import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 import type { ReactNode } from "react";
 
 type SpaceAdminEditorProps = {
   readonly spaces: readonly Space[];
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
-  readonly onAddSpace: (space: Space) => void;
+  readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
 };
 
 type SpaceNotice = {
@@ -15,7 +17,7 @@ type SpaceNotice = {
   readonly message: string;
 };
 
-export function SpaceAdminEditor({ spaces, onSaveSpace }: SpaceAdminEditorProps) {
+export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdminEditorProps) {
   const [expandedSpaceIds, setExpandedSpaceIds] = useState<readonly string[]>([]);
   const [draftsById, setDraftsById] = useState<Readonly<Record<string, Space>>>({});
   const [savingSpaceIds, setSavingSpaceIds] = useState<readonly string[]>([]);
@@ -23,6 +25,10 @@ export function SpaceAdminEditor({ spaces, onSaveSpace }: SpaceAdminEditorProps)
 
   const sortedSpaces = useMemo(
     () => [...spaces].sort((first, second) => first.sortOrder - second.sortOrder),
+    [spaces],
+  );
+  const nextSortOrder = useMemo(
+    () => spaces.reduce((max, space) => Math.max(max, space.sortOrder), 0) + 1,
     [spaces],
   );
 
@@ -60,6 +66,9 @@ export function SpaceAdminEditor({ spaces, onSaveSpace }: SpaceAdminEditorProps)
       </div>
       <div className="mt-3 rounded-lg bg-[#F7FBF4] px-3 py-2 text-xs font-semibold text-[#5B6856]">
         신청 내역 초기화는 이 화면에서 제공하지 않습니다. 운영 초기화가 필요하면 담당자 확인 후 별도 절차로 진행하세요.
+      </div>
+      <div className="mt-3">
+        <SpaceCreateForm nextSortOrder={nextSortOrder} onAddSpace={onAddSpace} />
       </div>
       <div className="mt-3 grid gap-3">
         {sortedSpaces.map((space) => {

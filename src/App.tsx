@@ -18,6 +18,7 @@ import {
   canUseMockFallback,
   cancelReservationSession,
   createAdminParticipant,
+  createAdminSpace,
   deactivateAdminBlock,
   deactivateAdminParticipant,
   fetchAdminReadModel,
@@ -29,6 +30,7 @@ import {
   updateParticipantReservationApproval,
   type AdminBlockMutationInput,
   type AdminSpaceMutationInput,
+  type CreateAdminSpaceInput,
 } from "./lib/supabaseReservationApi";
 import type { CreateParticipantFormInput } from "./components/AdminUserChecklist";
 import { getSelectedTimeRange } from "./lib/timeSelection";
@@ -440,6 +442,23 @@ export function App() {
     return { status: "ok" };
   };
 
+  const handleAddAdminSpace = async (space: CreateAdminSpaceInput): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      setAdminSpaces((current) => [...current, { ...space }]);
+      return { status: "ok" };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await createAdminSpace({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, space);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    setAdminSpaces((current) => [...current, result.space]);
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
   const effectiveSessions = useMemo(
     () => allowMockFallback ? sessions : mergeSessions(publicActiveSessions, sessions),
@@ -581,7 +600,7 @@ export function App() {
               onDeactivateParticipant={handleDeactivateParticipant}
               onReactivateParticipant={handleReactivateParticipant}
               onSaveSpace={handleSaveAdminSpace}
-              onAddSpace={(space) => setAdminSpaces((current) => [...current, space])}
+              onAddSpace={handleAddAdminSpace}
               onRefreshApplications={() => {
                 void refreshAdminReadModel();
               }}

@@ -22,11 +22,12 @@ import {
   mapReservationSubmissionRowsToMeeting,
   mapReservationSubmissionRowsToSessions,
   type AdminApplicationRow,
+  type OperatingHourRow,
   type SpaceImageRow,
   type SubmitReservationSessionInput,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
+import type { AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
@@ -410,6 +411,24 @@ export type AdminSpaceMutationResult =
   | { readonly status: "ok"; readonly space: Space }
   | { readonly status: "error"; readonly message: string };
 
+export type CreateAdminSpaceInput = Pick<
+  Space,
+  | "id"
+  | "name"
+  | "category"
+  | "capacity"
+  | "description"
+  | "imageUrl"
+  | "features"
+  | "operatingHours"
+  | "isActive"
+  | "isPublicVisible"
+  | "requiresAdminUnlock"
+  | "parentSpaceName"
+  | "adminMemo"
+  | "sortOrder"
+>;
+
 export const updateParticipantReservationApproval = async (
   admin: AdminCredentials,
   participantId: string,
@@ -620,6 +639,62 @@ export const saveAdminSpace = async (
   return { status: "ok", space: mapSpaceRows([row], [])[0] };
 };
 
+export const createAdminSpace = async (
+  admin: AdminCredentials,
+  input: CreateAdminSpaceInput,
+): Promise<AdminSpaceMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("create_admin_space", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_space_id: input.id,
+    input_name: input.name.trim(),
+    input_category: input.category,
+    input_capacity: input.capacity,
+    input_description: input.description,
+    input_image_url: input.imageUrl,
+    input_features: input.features,
+    input_is_active: input.isActive,
+    input_is_public_visible: input.isPublicVisible,
+    input_requires_admin_unlock: input.requiresAdminUnlock ?? false,
+    input_parent_space_name: input.parentSpaceName ?? "",
+    input_admin_memo: input.adminMemo ?? "",
+    input_sort_order: input.sortOrder,
+    input_operating_hours: toOperatingHoursPayload(input.operatingHours),
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("create_admin_space RPC", response.error);
+    return { status: "error", message: toAdminSpaceCreateFailureMessage(response.error) };
+  }
+
+  const row = firstSpaceRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  const operatingHourRows: readonly OperatingHourRow[] = input.operatingHours.map((hour) => ({
+    space_id: row.space_id,
+    day_of_week: hour.dayOfWeek,
+    open_time: hour.openTime,
+    close_time: hour.closeTime,
+    is_closed: hour.isClosed,
+  }));
+
+  return { status: "ok", space: mapSpaceRows([row], operatingHourRows)[0] };
+};
+
+const toOperatingHoursPayload = (hours: readonly OperatingHour[]) =>
+  hours.map((hour) => ({
+    day_of_week: hour.dayOfWeek,
+    open_time: hour.openTime,
+    close_time: hour.closeTime,
+    is_closed: hour.isClosed,
+  }));
+
 export type { SubmitReservationSessionInput };
 
 export type SubmitReservationResult =
@@ -745,6 +820,7 @@ export const canUseMockFallback = (): boolean => !isSupabaseConfigured;
 const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_BLOCK_GENERIC_FAILURE_MESSAGE = "차단 일정을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_SPACE_GENERIC_FAILURE_MESSAGE = "공간 정보를 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE = "공간을 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE = "참가자를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE = "참가자를 비활성화할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 
@@ -813,6 +889,19 @@ const toAdminSpaceFailureMessage = (error: PostgrestError): string => {
 
   if (parts.length === 0) {
     return ADMIN_SPACE_GENERIC_FAILURE_MESSAGE;
+  }
+  return parts.join(" / ");
+};
+
+const toAdminSpaceCreateFailureMessage = (error: PostgrestError): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE;
   }
   return parts.join(" / ");
 };
