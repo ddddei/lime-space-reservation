@@ -67,7 +67,7 @@ export function App() {
   const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>(() => readStoredAdmin());
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
   const [selectedDate, setSelectedDate] = useState("2026-07-01");
-  const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00", "10:30"]);
+  const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
 
   const refreshReservationReadModel = useCallback(async (): Promise<boolean> => {
