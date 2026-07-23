@@ -223,10 +223,28 @@ type ReservationDatabase = {
           readonly input_phone: string;
           readonly input_level: number;
           readonly input_memo: string | null;
+          readonly input_cohort?: string;
         };
         readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
       };
       readonly deactivate_admin_participant: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_participant_id: string;
+        };
+        readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
+      readonly update_participant_cohort: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_participant_id: string;
+          readonly input_cohort: string;
+        };
+        readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
+      readonly reset_participant_usage: {
         readonly Args: {
           readonly input_admin_name: string;
           readonly input_admin_phone: string;

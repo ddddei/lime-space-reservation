@@ -395,6 +395,7 @@ export type CreateAdminParticipantInput = {
   readonly phone: string;
   readonly level: UserLevel;
   readonly memo?: string;
+  readonly cohort?: string;
 };
 
 export type AdminParticipantMutationResult =
@@ -499,6 +500,71 @@ export const updateParticipantLevel = async (
   return { status: "ok", user: mapAdminParticipantRows([row])[0] };
 };
 
+export type ParticipantCohortUpdateResult =
+  | { readonly status: "ok"; readonly user: ParticipantUser }
+  | { readonly status: "error"; readonly message: string };
+
+export const updateParticipantCohort = async (
+  admin: AdminCredentials,
+  participantId: string,
+  cohort: string,
+): Promise<ParticipantCohortUpdateResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("update_participant_cohort", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_participant_id: participantId,
+    input_cohort: cohort,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("update_participant_cohort RPC", response.error);
+    return { status: "error", message: "기수를 변경할 수 없습니다." };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: "기수를 변경할 수 없습니다." };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export type ParticipantUsageResetResult =
+  | { readonly status: "ok"; readonly user: ParticipantUser }
+  | { readonly status: "error"; readonly message: string };
+
+// 기록은 아무것도 삭제하지 않는다 — usage_reset_on(기산일)만 오늘(KST)로 갱신한다.
+export const resetParticipantUsage = async (
+  admin: AdminCredentials,
+  participantId: string,
+): Promise<ParticipantUsageResetResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("reset_participant_usage", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_participant_id: participantId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("reset_participant_usage RPC", response.error);
+    return { status: "error", message: "사용시간을 초기화할 수 없습니다." };
+  }
+
+  const row = firstAdminParticipantRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: "사용시간을 초기화할 수 없습니다." };
+  }
+
+  return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
 export const createAdminParticipant = async (
   admin: AdminCredentials,
   input: CreateAdminParticipantInput,
@@ -514,6 +580,7 @@ export const createAdminParticipant = async (
     input_phone: input.phone.trim(),
     input_level: input.level,
     input_memo: input.memo?.trim() ?? null,
+    input_cohort: input.cohort?.trim() ?? "1기",
   });
 
   if (response.error !== null) {

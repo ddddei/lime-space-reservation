@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { addBlocks, formatDateLabel, formatDateValue, getTimeRangeBetween } from "../lib/date";
+import { CALENDAR_MONTHS_AHEAD } from "../data/settings";
+import { addBlocks, formatDateLabel, formatDateValue, getTodayDateValue, getTimeRangeBetween } from "../lib/date";
 import { getConflictingAdminBlock, getConflictingReservation, getOperatingHoursForDate } from "../lib/reservationRules";
 import type { AdminBlock, Meeting, OperatingHour, ReservationSession, Space } from "../types/reservation";
 
@@ -23,10 +24,16 @@ type DateMetrics = {
 };
 
 const weekdays = ["일", "월", "화", "수", "목", "금", "토"];
-const seasonMonths = [6, 7] as const;
+
+type MonthTab = {
+  readonly year: number;
+  readonly monthIndex: number;
+};
 
 export function CalendarView(props: CalendarViewProps) {
-  const [visibleMonthIndex, setVisibleMonthIndex] = useState(getMonthIndex(props.selectedDate));
+  const monthTabs = getMonthTabs(getTodayDateValue(), CALENDAR_MONTHS_AHEAD);
+  const monthTabLabels = getMonthTabLabels(monthTabs);
+  const [visibleMonth, setVisibleMonth] = useState<MonthTab>(() => getMonthTabForDate(props.selectedDate, monthTabs));
   const selectedMetrics = getDateMetrics(props.selectedDate, props.selectedSpace, props.sessions, props.adminBlocks);
   return (
     <section className="ui-card rounded-2xl p-4 md:p-5">
@@ -35,22 +42,22 @@ export function CalendarView(props: CalendarViewProps) {
           <p className="text-xs font-black text-[#5F9820]">날짜 선택</p>
           <h3 className="mt-1 text-xl font-black text-[#172014]">{props.selectedSpace.name}</h3>
         </div>
-        <div className="flex rounded-full border border-[#DDE8D6] bg-[#F7FBF4] p-1">
-          {seasonMonths.map((monthIndex) => (
+        <div className="flex flex-wrap rounded-full border border-[#DDE8D6] bg-[#F7FBF4] p-1">
+          {monthTabs.map((tab, index) => (
             <button
               type="button"
-              key={monthIndex}
-              onClick={() => setVisibleMonthIndex(monthIndex)}
+              key={`${tab.year}-${tab.monthIndex}`}
+              onClick={() => setVisibleMonth(tab)}
               className={`rounded-full px-4 py-2 text-xs font-black transition ${
-                visibleMonthIndex === monthIndex ? "bg-[#77B82A] text-white" : "text-[#5B6856] hover:text-[#172014]"
+                isSameMonthTab(visibleMonth, tab) ? "bg-[#77B82A] text-white" : "text-[#5B6856] hover:text-[#172014]"
               }`}
             >
-              {monthIndex + 1}월
+              {monthTabLabels[index]}
             </button>
           ))}
         </div>
       </div>
-      <MonthCalendar monthIndex={visibleMonthIndex} {...props} />
+      <MonthCalendar year={visibleMonth.year} monthIndex={visibleMonth.monthIndex} {...props} />
       <SelectedDateSummary
         date={props.selectedDate}
         metrics={selectedMetrics}
@@ -62,8 +69,8 @@ export function CalendarView(props: CalendarViewProps) {
   );
 }
 
-function MonthCalendar(props: CalendarViewProps & { readonly monthIndex: number }) {
-  const dates = getMonthGridDates(2026, props.monthIndex);
+function MonthCalendar(props: CalendarViewProps & { readonly year: number; readonly monthIndex: number }) {
+  const dates = getMonthGridDates(props.year, props.monthIndex);
   return (
     <div className="rounded-[20px] border border-[#EBF2E7] bg-[#F7FBF4] p-3">
       <div className="grid grid-cols-7 gap-1 text-center text-[11px] font-bold text-[#819078]">
@@ -215,8 +222,35 @@ function createDateMetrics(
   return { label, toneClass, operatingHours, totalBlocks, unavailableBlocks, reservedMeetingCount, hasAdminBlock };
 }
 
-function getMonthIndex(date: string): 6 | 7 {
-  return date.slice(5, 7) === "08" ? 7 : 6;
+function getMonthTabs(baseDate: string, monthsAhead: number): readonly MonthTab[] {
+  const base = new Date(`${baseDate}T00:00:00+09:00`);
+  const startYear = base.getFullYear();
+  const startMonth = base.getMonth();
+  return Array.from({ length: monthsAhead }, (_, index) => {
+    const totalMonth = startMonth + index;
+    return {
+      year: startYear + Math.floor(totalMonth / 12),
+      monthIndex: totalMonth % 12,
+    };
+  });
+}
+
+function getMonthTabLabels(tabs: readonly MonthTab[]): readonly string[] {
+  return tabs.map((tab, index) => {
+    const month = tab.monthIndex + 1;
+    const showYear = index > 0 && tab.year !== tabs[index - 1].year;
+    return showYear ? `${tab.year}년 ${month}월` : `${month}월`;
+  });
+}
+
+function isSameMonthTab(first: MonthTab, second: MonthTab): boolean {
+  return first.year === second.year && first.monthIndex === second.monthIndex;
+}
+
+function getMonthTabForDate(date: string, tabs: readonly MonthTab[]): MonthTab {
+  const year = Number(date.slice(0, 4));
+  const monthIndex = Number(date.slice(5, 7)) - 1;
+  return tabs.find((tab) => tab.year === year && tab.monthIndex === monthIndex) ?? tabs[0];
 }
 
 function shortStatus(label: DateMetrics["label"]): string {

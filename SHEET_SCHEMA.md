@@ -69,6 +69,8 @@
 | maxBlocks | number | 총 신청 가능 블록 수 |
 | memo | string | 관리자 메모 |
 | isActive | boolean | 활성 사용자 여부 |
+| cohort | string | 참가자 기수 라벨(예: 1기, 2기). 기본값 1기 |
+| usageResetOn | date \| null | 사용시간 계산 기산일. null이면 전체 기록 합산, 값이 있으면 그 날짜 이후(포함) 비취소 세션만 합산. 초기화해도 기존 기록은 삭제하지 않음 |
 | createdAt | ISO datetime | 생성 시각 |
 | updatedAt | ISO datetime | 마지막 수정 시각 |
 

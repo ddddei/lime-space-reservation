@@ -65,6 +65,8 @@ export type ParticipantUser = {
   readonly maxBlocks: number;
   readonly memo: string;
   readonly isActive: boolean;
+  readonly cohort: string;
+  readonly usageResetOn?: string;
   readonly createdAt?: string;
   readonly updatedAt?: string;
 };

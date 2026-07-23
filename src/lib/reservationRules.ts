@@ -52,12 +52,21 @@ const activeSessions = (
 ): readonly ReservationSession[] =>
   sessions.filter((session) => session.status !== "cancelled" && session.id !== excludeSessionId);
 
-export const getUserUsedBlocks = (userId: string, context: SessionContext): number => {
+/**
+ * 참가자별 사용시간 초기화(usage_reset_on) 기준선. 기산일이 없으면 항상 true(전체 합산),
+ * 있으면 기산일 이후(포함) 날짜만 사용시간에 포함한다. 서버(submit_reservation_application)와
+ * 같은 규칙을 클라이언트 표시에도 적용하기 위한 단일 지점.
+ */
+export const isSessionAfterReset = (date: string, usageResetOn?: string): boolean =>
+  usageResetOn === undefined || date >= usageResetOn;
+
+export const getUserUsedBlocks = (userId: string, context: SessionContext, usageResetOn?: string): number => {
   const meetingIds = context.meetings
     .filter((meeting) => meeting.applicantUserId === userId)
     .map((meeting) => meeting.id);
   return activeSessions(context.sessions)
     .filter((session) => meetingIds.includes(session.meetingId))
+    .filter((session) => isSessionAfterReset(session.date, usageResetOn))
     .reduce((total, session) => total + session.blockCount, 0);
 };
 
@@ -66,7 +75,7 @@ export const getEligibility = (
   context: SessionContext,
   requestedBlocks = DEFAULT_RESERVATION_BLOCKS,
 ): EligibilityResult => {
-  const usedBlocks = getUserUsedBlocks(user.id, context);
+  const usedBlocks = getUserUsedBlocks(user.id, context, user.usageResetOn);
   const remainingBlocks = Math.max(0, user.maxBlocks - usedBlocks);
   const missingRequirements = [...getChecklistLabels(user)];
   if (remainingBlocks < requestedBlocks) {
@@ -166,7 +175,7 @@ export const validateReservationSave = (input: SaveValidationInput): SaveValidat
   const currentUsedBlocks = getUserUsedBlocks(input.user.id, {
     meetings: input.meetings,
     sessions: activeSessions(input.sessions, input.excludeSessionId),
-  });
+  }, input.user.usageResetOn);
   const dailyBlocks = getUserDailyBlocks(
     input.user.id,
     input.date,

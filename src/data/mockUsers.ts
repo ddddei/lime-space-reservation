@@ -15,6 +15,7 @@ export const initialUsers: readonly ParticipantUser[] = [
     maxBlocks: LEVEL_MAX_BLOCKS[2],
     memo: "생활 기록 모임 운영자",
     isActive: true,
+    cohort: "1기",
   },
   {
     id: "user-2",
@@ -29,6 +30,7 @@ export const initialUsers: readonly ParticipantUser[] = [
     maxBlocks: LEVEL_MAX_BLOCKS[1],
     memo: "예산안 보완 필요",
     isActive: true,
+    cohort: "1기",
   },
   {
     id: "user-3",
@@ -43,5 +45,6 @@ export const initialUsers: readonly ParticipantUser[] = [
     maxBlocks: LEVEL_MAX_BLOCKS[1],
     memo: "신규 승인 완료",
     isActive: true,
+    cohort: "1기",
   },
 ];
