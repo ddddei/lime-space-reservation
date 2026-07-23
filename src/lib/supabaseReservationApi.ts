@@ -6,12 +6,14 @@ import { initialUsers } from "../data/mockUsers";
 import { findAdminByNameAndPhone, findParticipantByNameAndPhone, type AdminAuthResult, type ParticipantAuthResult } from "./participantAuth";
 import { isSupabaseConfigured, supabaseClient } from "./supabaseClient";
 import {
+  firstAdminAccountRow,
   firstAdminParticipantRow,
   firstAdminBlockRow,
   firstAdminVerificationRow,
   firstCancelReservationRow,
   firstParticipantVerificationRow,
   firstSpaceRow,
+  mapAdminAccountRows,
   mapAdminApplicationRows,
   mapAdminBlockRows,
   mapAdminParticipantRows,
@@ -28,7 +30,7 @@ import {
   type SubmitReservationSessionInput,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
+import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
@@ -47,6 +49,7 @@ type AdminReadModel = {
   readonly spaces: readonly Space[];
   readonly applications: readonly AdminApplication[];
   readonly adminBlocks: readonly AdminBlock[];
+  readonly adminAccounts: readonly Admin[];
 };
 
 export type ParticipantReservationReadModel = {
@@ -209,11 +212,12 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
     input_admin_name: credentials.name.trim(),
     input_admin_phone: credentials.phone.trim(),
   };
-  const [participantsResponse, spacesResponse, applicationsResponse, blocksResponse] = await Promise.all([
+  const [participantsResponse, spacesResponse, applicationsResponse, blocksResponse, accountsResponse] = await Promise.all([
     supabaseClient.rpc("get_admin_participants", args),
     supabaseClient.rpc("get_admin_spaces", args),
     supabaseClient.rpc("get_admin_applications", args),
     supabaseClient.rpc("get_admin_blocks", args),
+    supabaseClient.rpc("get_admin_accounts", args),
   ]);
 
   if (participantsResponse.error !== null) {
@@ -232,6 +236,10 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
     warnSupabaseReadError("get_admin_blocks RPC", blocksResponse.error);
     return emptyAdminReadModel();
   }
+  if (accountsResponse.error !== null) {
+    warnSupabaseReadError("get_admin_accounts RPC", accountsResponse.error);
+    return emptyAdminReadModel();
+  }
 
   const adminSpaceRows = spacesResponse.data ?? [];
   const adminSpaceIds = adminSpaceRows.map((space) => space.space_id);
@@ -242,6 +250,7 @@ export const fetchAdminReadModel = async (credentials: AdminCredentials): Promis
     spaces: mapSpaceRows(adminSpaceRows, [], spaceImagesResponse.rows),
     applications: mapAdminApplicationRows(applicationsResponse.data ?? []),
     adminBlocks: mapAdminBlockRows(blocksResponse.data ?? []).filter((block) => block.isActive),
+    adminAccounts: mapAdminAccountRows(accountsResponse.data ?? []),
   };
 };
 
@@ -543,6 +552,72 @@ export const deactivateAdminParticipant = async (
   }
 
   return { status: "ok", user: mapAdminParticipantRows([row])[0] };
+};
+
+export type CreateAdminAccountInput = {
+  readonly name: string;
+  readonly phone: string;
+  readonly role?: string;
+};
+
+export type AdminAccountMutationResult =
+  | { readonly status: "ok"; readonly account: Admin }
+  | { readonly status: "error"; readonly message: string };
+
+export const createAdminAccount = async (
+  admin: AdminCredentials,
+  input: CreateAdminAccountInput,
+): Promise<AdminAccountMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("create_admin_account", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_name: input.name.trim(),
+    input_phone: input.phone.trim(),
+    input_role: input.role?.trim() ?? null,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("create_admin_account RPC", response.error);
+    return { status: "error", message: toAdminAccountFailureMessage(response.error, ADMIN_ACCOUNT_CREATE_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstAdminAccountRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_ACCOUNT_CREATE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", account: mapAdminAccountRows([row])[0] };
+};
+
+export const deactivateAdminAccount = async (
+  admin: AdminCredentials,
+  adminId: string,
+): Promise<AdminAccountMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("deactivate_admin_account", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_admin_id: adminId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("deactivate_admin_account RPC", response.error);
+    return { status: "error", message: toAdminAccountFailureMessage(response.error, ADMIN_ACCOUNT_DEACTIVATE_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstAdminAccountRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: ADMIN_ACCOUNT_DEACTIVATE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", account: mapAdminAccountRows([row])[0] };
 };
 
 export const saveAdminBlock = async (
@@ -858,10 +933,27 @@ const ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE = "공간을 추가할 수 없�
 const ADMIN_SPACE_OPERATING_HOURS_GENERIC_FAILURE_MESSAGE = "운영시간을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE = "참가자를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE = "참가자를 비활성화할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_ACCOUNT_CREATE_GENERIC_FAILURE_MESSAGE = "관리자 계정을 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_ACCOUNT_DEACTIVATE_GENERIC_FAILURE_MESSAGE = "관리자 계정을 비활성화할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 
 // create_admin_participant / deactivate_admin_participant RPC가 raise exception으로 던진
 // 한국어 검증 메시지(예: '이미 등록된 참가자입니다.')를 그대로 노출한다.
 const toAdminParticipantFailureMessage = (error: PostgrestError, genericMessage: string): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return genericMessage;
+  }
+  return parts.join(" / ");
+};
+
+// create_admin_account / deactivate_admin_account RPC가 raise exception으로 던진
+// 한국어 검증 메시지(예: '본인 계정은 비활성화할 수 없습니다.')를 그대로 노출한다.
+const toAdminAccountFailureMessage = (error: PostgrestError, genericMessage: string): string => {
   const parts = [
     error.message.trim(),
     error.details?.trim(),
@@ -959,6 +1051,7 @@ const emptyAdminReadModel = (): AdminReadModel => ({
   spaces: [],
   applications: [],
   adminBlocks: [],
+  adminAccounts: [],
 });
 
 const warnSupabaseReadError = (label: string, error: PostgrestError): void => {

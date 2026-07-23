@@ -1,5 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
+  AdminAccountRow,
   AdminApplicationRow,
   AdminBlockInsert,
   AdminBlockRow,
@@ -232,6 +233,31 @@ type ReservationDatabase = {
           readonly input_participant_id: string;
         };
         readonly Returns: AdminParticipantRow | AdminParticipantRow[] | null;
+      };
+      readonly get_admin_accounts: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+        };
+        readonly Returns: AdminAccountRow[];
+      };
+      readonly create_admin_account: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_name: string;
+          readonly input_phone: string;
+          readonly input_role: string | null;
+        };
+        readonly Returns: AdminAccountRow | AdminAccountRow[] | null;
+      };
+      readonly deactivate_admin_account: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_admin_id: string;
+        };
+        readonly Returns: AdminAccountRow | AdminAccountRow[] | null;
       };
       readonly submit_reservation_application: {
         readonly Args: {

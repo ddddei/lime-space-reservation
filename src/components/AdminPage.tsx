@@ -1,11 +1,16 @@
+import { AdminAccountChecklist, type CreateAdminAccountFormInput } from "./AdminAccountChecklist";
 import { AdminBlockForm, type AdminBlockFormInput } from "./AdminBlockForm";
 import { AdminReservationTable } from "./AdminReservationTable";
 import { AdminUserChecklist, type CreateParticipantFormInput } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
-import type { AdminApplication, AdminBlock, OperatingHour, ParticipantUser, Space, UserLevel } from "../types/reservation";
+import type { Admin, AdminApplication, AdminBlock, OperatingHour, ParticipantUser, Space, UserLevel } from "../types/reservation";
 import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 
 type ParticipantMutationResult =
+  | { readonly status: "ok" }
+  | { readonly status: "error"; readonly message: string };
+
+type AdminAccountMutationResult =
   | { readonly status: "ok" }
   | { readonly status: "error"; readonly message: string };
 
@@ -22,6 +27,12 @@ type AdminPageProps = {
   readonly onCreateParticipant: (input: CreateParticipantFormInput) => Promise<ParticipantMutationResult>;
   readonly onDeactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
+  readonly adminAccounts: readonly Admin[];
+  readonly currentAdminId: string;
+  readonly canManageAdminAccounts: boolean;
+  readonly onCreateAdminAccount: (input: CreateAdminAccountFormInput) => Promise<AdminAccountMutationResult>;
+  readonly onDeactivateAdminAccount: (account: Admin) => Promise<AdminAccountMutationResult>;
+  readonly onReactivateAdminAccount: (account: Admin) => Promise<AdminAccountMutationResult>;
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onSaveSpaceOperatingHours: (spaceId: string, operatingHours: readonly OperatingHour[]) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
@@ -45,6 +56,14 @@ export function AdminPage(props: AdminPageProps) {
         onCreateParticipant={props.onCreateParticipant}
         onDeactivateParticipant={props.onDeactivateParticipant}
         onReactivateParticipant={props.onReactivateParticipant}
+      />
+      <AdminAccountChecklist
+        accounts={props.adminAccounts}
+        currentAdminId={props.currentAdminId}
+        canManageAccounts={props.canManageAdminAccounts}
+        onCreateAccount={props.onCreateAdminAccount}
+        onDeactivateAccount={props.onDeactivateAdminAccount}
+        onReactivateAccount={props.onReactivateAdminAccount}
       />
       <AdminReservationTable
         applications={props.applications}

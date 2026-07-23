@@ -17,8 +17,10 @@ import {
 import {
   canUseMockFallback,
   cancelReservationSession,
+  createAdminAccount,
   createAdminParticipant,
   createAdminSpace,
+  deactivateAdminAccount,
   deactivateAdminBlock,
   deactivateAdminParticipant,
   fetchAdminReadModel,
@@ -33,6 +35,7 @@ import {
   type AdminSpaceMutationInput,
   type CreateAdminSpaceInput,
 } from "./lib/supabaseReservationApi";
+import type { CreateAdminAccountFormInput } from "./components/AdminAccountChecklist";
 import type { CreateParticipantFormInput } from "./components/AdminUserChecklist";
 import { getSelectedTimeRange } from "./lib/timeSelection";
 import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
@@ -54,6 +57,7 @@ export function App() {
   const [publicSpaces, setPublicSpaces] = useState<readonly Space[]>(allowMockFallback ? getPublicSpaces(initialSpaces) : []);
   const [adminSpaces, setAdminSpaces] = useState<readonly Space[]>(allowMockFallback ? initialSpaces : []);
   const [adminUsers, setAdminUsers] = useState<readonly ParticipantUser[]>(allowMockFallback ? initialUsers : []);
+  const [adminAccounts, setAdminAccounts] = useState<readonly Admin[]>([]);
   const [meetings, setMeetings] = useState<readonly Meeting[]>(allowMockFallback ? initialMeetings : []);
   const [sessions, setSessions] = useState<readonly ReservationSession[]>(allowMockFallback ? initialSessions : []);
   const [publicActiveSessions, setPublicActiveSessions] = useState<readonly ReservationSession[]>(allowMockFallback ? initialSessions.filter((session) => session.status !== "cancelled") : []);
@@ -156,6 +160,7 @@ export function App() {
     setAdminSpaces(model.spaces);
     setAdminApplications(model.applications);
     setAdminBlocks(model.adminBlocks);
+    setAdminAccounts(model.adminAccounts);
     return true;
   }, [authenticatedAdmin]);
 
@@ -172,6 +177,7 @@ export function App() {
       setAdminSpaces(model.spaces);
       setAdminApplications(model.applications);
       setAdminBlocks(model.adminBlocks);
+      setAdminAccounts(model.adminAccounts);
     });
     return () => {
       isCurrent = false;
@@ -210,6 +216,7 @@ export function App() {
       setAdminUsers([]);
       setAdminSpaces([]);
       setAdminBlocks([]);
+      setAdminAccounts([]);
     }
   }, [allowMockFallback]);
 
@@ -312,6 +319,66 @@ export function App() {
       return { status: "error", message: result.message };
     }
     setAdminUsers((current) => current.map((item) => (item.id === result.user.id ? result.user : item)));
+    void refreshAdminReadModel();
+    return { status: "ok" };
+  };
+
+  const handleCreateAdminAccount = async (
+    input: CreateAdminAccountFormInput,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 관리자 계정을 추가할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await createAdminAccount({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, input);
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminAccounts((current) => {
+      const exists = current.some((item) => item.id === result.account.id);
+      return exists ? current.map((item) => (item.id === result.account.id ? result.account : item)) : [...current, result.account];
+    });
+    void refreshAdminReadModel();
+    return { status: "ok" };
+  };
+
+  const handleDeactivateAdminAccount = async (
+    account: Admin,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 관리자 계정을 비활성화할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await deactivateAdminAccount({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, account.id);
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminAccounts((current) => current.map((item) => (item.id === result.account.id ? result.account : item)));
+    void refreshAdminReadModel();
+    return { status: "ok" };
+  };
+
+  const handleReactivateAdminAccount = async (
+    account: Admin,
+  ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 관리자 계정을 재활성화할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await createAdminAccount(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      { name: account.name, phone: account.phone, role: account.role },
+    );
+    if (result.status !== "ok") {
+      return { status: "error", message: result.message };
+    }
+    setAdminAccounts((current) => current.map((item) => (item.id === result.account.id ? result.account : item)));
     void refreshAdminReadModel();
     return { status: "ok" };
   };
@@ -618,6 +685,12 @@ export function App() {
               onCreateParticipant={handleCreateParticipant}
               onDeactivateParticipant={handleDeactivateParticipant}
               onReactivateParticipant={handleReactivateParticipant}
+              adminAccounts={adminAccounts}
+              currentAdminId={authenticatedAdmin.id}
+              canManageAdminAccounts={!allowMockFallback}
+              onCreateAdminAccount={handleCreateAdminAccount}
+              onDeactivateAdminAccount={handleDeactivateAdminAccount}
+              onReactivateAdminAccount={handleReactivateAdminAccount}
               onSaveSpace={handleSaveAdminSpace}
               onAddSpace={handleAddAdminSpace}
               onSaveSpaceOperatingHours={handleSaveAdminSpaceOperatingHours}
