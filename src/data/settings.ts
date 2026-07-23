@@ -6,6 +6,8 @@ export const MAX_DAILY_BLOCKS = 8;
 export const MAX_MEETING_SESSIONS = 6;
 export const OPEN_TIME = "09:00";
 export const CLOSE_TIME = "21:00";
+export const ALL_DAY_BOOKING_OPEN_TIME = "09:00";
+export const ALL_DAY_BOOKING_CLOSE_TIME = "22:00";
 
 export const LEVEL_MAX_BLOCKS: Record<UserLevel, number> = {
   1: 16,

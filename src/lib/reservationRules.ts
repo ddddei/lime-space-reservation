@@ -1,4 +1,10 @@
-import { DEFAULT_RESERVATION_BLOCKS, MAX_DAILY_BLOCKS, MAX_MEETING_SESSIONS } from "../data/settings";
+import {
+  ALL_DAY_BOOKING_CLOSE_TIME,
+  ALL_DAY_BOOKING_OPEN_TIME,
+  DEFAULT_RESERVATION_BLOCKS,
+  MAX_DAILY_BLOCKS,
+  MAX_MEETING_SESSIONS,
+} from "../data/settings";
 import { addBlocks, getBlockCount, getDayOfWeek, getTimeRangeBetween, rangesOverlap, toMinutes } from "./date";
 import { getChecklistLabels } from "./permissions";
 import type {
@@ -211,8 +217,29 @@ export const hasUserOtherSpaceOnDate = (
   );
 };
 
+const isAllDayOperatingHours = (hours: OperatingHour): boolean =>
+  hours.openTime === "00:00" && hours.closeTime === "24:00";
+
+/**
+ * 24시간 운영 공간(00:00~24:00)은 예약 가능 시간을 ALL_DAY_BOOKING_OPEN_TIME~ALL_DAY_BOOKING_CLOSE_TIME로 좁혀서 돌려준다.
+ * 일반 공간의 운영시간은 그대로 유지한다. 슬롯 생성과 저장 검증이 같은 기준을 쓰도록
+ * 두 지점(getTimeSlots, isWithinOperatingHours) 모두 이 헬퍼를 거친다.
+ */
+export const clampOperatingHours = (hours: OperatingHour): OperatingHour =>
+  isAllDayOperatingHours(hours)
+    ? { ...hours, openTime: ALL_DAY_BOOKING_OPEN_TIME, closeTime: ALL_DAY_BOOKING_CLOSE_TIME }
+    : hours;
+
+export const getEffectiveOperatingHoursForDate = (
+  date: string,
+  operatingHours: readonly OperatingHour[],
+): OperatingHour | undefined => {
+  const hours = getOperatingHoursForDate(date, operatingHours);
+  return hours === undefined ? undefined : clampOperatingHours(hours);
+};
+
 export const getTimeSlots = (context: SlotContext): readonly TimeSlot[] => {
-  const hours = getOperatingHoursForDate(context.date, context.operatingHours);
+  const hours = getEffectiveOperatingHoursForDate(context.date, context.operatingHours);
   if (hours === undefined || hours.isClosed) {
     return [];
   }
@@ -248,7 +275,7 @@ export const isWithinOperatingHours = (
   endTime: string,
   operatingHours: readonly OperatingHour[],
 ): boolean => {
-  const hours = getOperatingHoursForDate(date, operatingHours);
+  const hours = getEffectiveOperatingHoursForDate(date, operatingHours);
   if (hours === undefined || hours.isClosed) {
     return false;
   }
