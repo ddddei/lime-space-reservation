@@ -1,12 +1,14 @@
 import { useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { Camera, ChevronLeft, ChevronRight, ExternalLink, LogOut, MessageCircle, X } from "lucide-react";
+import { Camera, ChevronLeft, ChevronRight, ExternalLink, HelpCircle, LogOut, MessageCircle, X } from "lucide-react";
 import { EligibilityPanel } from "./EligibilityPanel";
+import { HelpModal } from "./HelpModal";
 import { MeetingForm } from "./MeetingForm";
 import { MyMeetings } from "./MyMeetings";
 import { SpaceLanding } from "./SpaceLanding";
 import { TimeBlockSelector } from "./TimeBlockSelector";
 import { CalendarView } from "./CalendarView";
 import { addBlocks } from "../lib/date";
+import { USER_HELP_SECTIONS } from "../data/helpContent";
 import {
   prepareReservationCreate,
   prepareSessionUpdate,
@@ -152,6 +154,7 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
             refreshError={props.refreshReservationsError}
             onRefresh={props.onRefreshReservations}
           />
+          <HelpCard />
           <ContactCard />
         </aside>
       </div>
@@ -230,6 +233,39 @@ function UserHero(props: UserReservationFlowProps) {
           </button>
         </div>
       </div>
+    </section>
+  );
+}
+
+function HelpCard() {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
+  return (
+    <section className="ui-card rounded-2xl p-4">
+      <div className="flex items-start gap-3">
+        <HelpCircle className="mt-0.5 text-[#5F9820]" size={20} strokeWidth={2.4} />
+        <div>
+          <p className="text-xs font-black text-[#5F9820]">도움말</p>
+          <h2 className="mt-1 text-lg font-black text-[#172014]">이용 안내</h2>
+          <p className="mt-2 text-sm font-semibold leading-6 text-[#5B6856]">
+            로그인, 남은 시간, 예약 규칙, 취소 방법을 한눈에 확인하세요.
+          </p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => setIsHelpOpen(true)}
+        className="ui-button ui-button-ghost mt-4 w-full"
+      >
+        이용 안내 보기
+      </button>
+      {isHelpOpen && (
+        <HelpModal
+          title="참가자 이용 안내"
+          description="로그인부터 취소까지, 예약 방법을 요약해 안내합니다."
+          sections={USER_HELP_SECTIONS}
+          onClose={() => setIsHelpOpen(false)}
+        />
+      )}
     </section>
   );
 }

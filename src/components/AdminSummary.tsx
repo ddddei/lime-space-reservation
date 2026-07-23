@@ -1,5 +1,8 @@
-import { LogOut } from "lucide-react";
+import { useState } from "react";
+import { HelpCircle, LogOut } from "lucide-react";
 import { getAdminRoleLabel } from "../lib/displayLabels";
+import { ADMIN_HELP_SECTIONS } from "../data/helpContent";
+import { HelpModal } from "./HelpModal";
 import type { Admin, AdminApplication, AdminBlock, ParticipantUser } from "../types/reservation";
 
 type AdminSummaryProps = {
@@ -11,6 +14,7 @@ type AdminSummaryProps = {
 };
 
 export function AdminSummary({ admin, users, applications, adminBlocks, onLogout }: AdminSummaryProps) {
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const activeApplications = applications.filter((application) => application.sessionStatus !== "cancelled");
   const activeBlocks = adminBlocks.filter((block) => block.isActive);
   return (
@@ -21,15 +25,33 @@ export function AdminSummary({ admin, users, applications, adminBlocks, onLogout
           <h2 className="mt-1 text-xl font-extrabold text-[#172014]">{admin.name}</h2>
           <p className="mt-1 text-sm text-[#5B6856]">권한 {getAdminRoleLabel(admin.role)}</p>
         </div>
-        <button
-          type="button"
-          onClick={onLogout}
-          className="ui-button ui-button-ghost"
-        >
-          <LogOut size={16} strokeWidth={2.3} />
-          관리자 로그아웃
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setIsHelpOpen(true)}
+            className="ui-button ui-button-ghost"
+          >
+            <HelpCircle size={16} strokeWidth={2.3} />
+            도움말
+          </button>
+          <button
+            type="button"
+            onClick={onLogout}
+            className="ui-button ui-button-ghost"
+          >
+            <LogOut size={16} strokeWidth={2.3} />
+            관리자 로그아웃
+          </button>
+        </div>
       </div>
+      {isHelpOpen && (
+        <HelpModal
+          title="관리자 운영 가이드 요약"
+          description="화면 구성과 참가자·공간·차단 일정 관리 방법을 섹션별로 요약합니다."
+          sections={ADMIN_HELP_SECTIONS}
+          onClose={() => setIsHelpOpen(false)}
+        />
+      )}
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
         <SummaryMetric label="전체 신청" value={`${activeApplications.length}건`} />
         <SummaryMetric label="활성 차단 일정" value={`${activeBlocks.length}건`} />
