@@ -17,6 +17,8 @@ export type Admin = {
   readonly phoneLast4: string;
   readonly role: string;
   readonly isActive: boolean;
+  readonly createdAt?: string;
+  readonly updatedAt?: string;
 };
 
 export type Space = {

@@ -120,6 +120,17 @@ export type AdminVerificationRow = {
   readonly role: string | null;
 };
 
+export type AdminAccountRow = {
+  readonly admin_id: string;
+  readonly name: string;
+  readonly phone: string | null;
+  readonly phone_last4: string | null;
+  readonly role: string | null;
+  readonly is_active: boolean | null;
+  readonly created_at: string | null;
+  readonly updated_at: string | null;
+};
+
 export type AdminParticipantRow = {
   readonly participant_id: string;
   readonly name: string;
@@ -275,6 +286,18 @@ export const mapAdminParticipantRows = (rows: readonly AdminParticipantRow[]): r
     updatedAt: row.updated_at ?? undefined,
   }));
 
+export const mapAdminAccountRows = (rows: readonly AdminAccountRow[]): readonly Admin[] =>
+  rows.map((row) => ({
+    id: row.admin_id,
+    name: row.name,
+    phone: row.phone ?? "",
+    phoneLast4: row.phone_last4 ?? getPhoneLast4(row.phone ?? ""),
+    role: row.role ?? "admin",
+    isActive: row.is_active ?? false,
+    createdAt: row.created_at ?? undefined,
+    updatedAt: row.updated_at ?? undefined,
+  }));
+
 export const mapAdminApplicationRows = (rows: readonly AdminApplicationRow[]): readonly AdminApplication[] =>
   rows.map((row) => ({
     meetingId: row.meeting_id,
@@ -412,6 +435,15 @@ export const firstAdminVerificationRow = (
 export const firstAdminParticipantRow = (
   data: AdminParticipantRow | AdminParticipantRow[] | null,
 ): AdminParticipantRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
+export const firstAdminAccountRow = (
+  data: AdminAccountRow | AdminAccountRow[] | null,
+): AdminAccountRow | undefined => {
   if (Array.isArray(data)) {
     return data[0];
   }
