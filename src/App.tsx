@@ -15,6 +15,7 @@ import {
   validateCurrentSelection,
 } from "./lib/mockReservationActions";
 import {
+  addSpaceImage,
   canUseMockFallback,
   cancelReservationSession,
   createAdminAccount,
@@ -26,8 +27,10 @@ import {
   fetchAdminReadModel,
   fetchParticipantReservationReadModel,
   fetchReservationReadModel,
+  removeSpaceImage,
   saveAdminBlock,
   saveAdminSpace,
+  setPrimarySpaceImage,
   updateAdminSpaceOperatingHours,
   updateParticipantLevel,
   updateParticipantReservationApproval,
@@ -38,6 +41,7 @@ import {
 import type { CreateAdminAccountFormInput } from "./components/AdminAccountChecklist";
 import type { CreateParticipantFormInput } from "./components/AdminUserChecklist";
 import { getSelectedTimeRange } from "./lib/timeSelection";
+import { getTodayDateValue } from "./lib/date";
 import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
 
 type AppMode = "user" | "admin";
@@ -71,7 +75,7 @@ export function App() {
   const [authenticatedUser, setAuthenticatedUser] = useState<ParticipantUser | undefined>(() => readStoredParticipantUser());
   const [authenticatedAdmin, setAuthenticatedAdmin] = useState<Admin | undefined>(() => readStoredAdmin());
   const [selectedSpaceId, setSelectedSpaceId] = useState(getInitialPublicSpaceId(allowMockFallback ? initialSpaces : []));
-  const [selectedDate, setSelectedDate] = useState("2026-07-01");
+  const [selectedDate, setSelectedDate] = useState(getTodayDateValue);
   const [selectedBlockTimes, setSelectedBlockTimes] = useState<readonly string[]>(["10:00"]);
   const [meetingName, setMeetingName] = useState("새 생활 모임");
 
@@ -545,6 +549,51 @@ export function App() {
     return { status: "ok" };
   };
 
+  const handleAddSpaceImage = async (spaceId: string, imageUrl: string, altText?: string): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 사진 갤러리를 관리할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await addSpaceImage({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, spaceId, imageUrl, altText);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
+  const handleRemoveSpaceImage = async (imageId: string): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 사진 갤러리를 관리할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await removeSpaceImage({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, imageId);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
+  const handleSetPrimarySpaceImage = async (imageId: string): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      return { status: "error", message: "Mock 모드에서는 사진 갤러리를 관리할 수 없습니다." };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await setPrimarySpaceImage({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, imageId);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
   const selectedSpace = publicSpaces.find((space) => space.id === selectedSpaceId) ?? publicSpaces[0];
   const effectiveSessions = useMemo(
     () => allowMockFallback ? sessions : mergeSessions(publicActiveSessions, sessions),
@@ -694,6 +743,10 @@ export function App() {
               onSaveSpace={handleSaveAdminSpace}
               onAddSpace={handleAddAdminSpace}
               onSaveSpaceOperatingHours={handleSaveAdminSpaceOperatingHours}
+              canManageSpaceImages={!allowMockFallback}
+              onAddSpaceImage={handleAddSpaceImage}
+              onRemoveSpaceImage={handleRemoveSpaceImage}
+              onSetPrimarySpaceImage={handleSetPrimarySpaceImage}
               onRefreshApplications={() => {
                 void refreshAdminReadModel();
               }}

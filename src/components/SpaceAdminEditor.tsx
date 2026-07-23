@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Eye, EyeOff, Save, X } from "lucide-react";
+import { Eye, EyeOff, Save, Star, Trash2, Upload, X } from "lucide-react";
 import { getSpaceCategoryLabel } from "../lib/displayLabels";
 import {
   analyzeOperatingHours,
@@ -16,12 +16,17 @@ import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 import type { ReactNode } from "react";
 
 type SaveResult = { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
+type SpaceImageSaveResult = { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
 
 type SpaceAdminEditorProps = {
   readonly spaces: readonly Space[];
   readonly onSaveSpace: (space: Space) => Promise<SaveResult>;
   readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<SaveResult>;
   readonly onSaveOperatingHours: (spaceId: string, operatingHours: readonly OperatingHour[]) => Promise<SaveResult>;
+  readonly canManageImages: boolean;
+  readonly onAddImage: (spaceId: string, imageUrl: string, altText?: string) => Promise<SpaceImageSaveResult>;
+  readonly onRemoveImage: (imageId: string) => Promise<SpaceImageSaveResult>;
+  readonly onSetPrimaryImage: (imageId: string) => Promise<SpaceImageSaveResult>;
 };
 
 type SpaceNotice = {
@@ -36,7 +41,16 @@ type OperatingHoursDraft = {
   readonly warningMessage?: string;
 };
 
-export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace, onSaveOperatingHours }: SpaceAdminEditorProps) {
+export function SpaceAdminEditor({
+  spaces,
+  onSaveSpace,
+  onAddSpace,
+  onSaveOperatingHours,
+  canManageImages,
+  onAddImage,
+  onRemoveImage,
+  onSetPrimaryImage,
+}: SpaceAdminEditorProps) {
   const [expandedSpaceIds, setExpandedSpaceIds] = useState<readonly string[]>([]);
   const [draftsById, setDraftsById] = useState<Readonly<Record<string, Space>>>({});
   const [savingSpaceIds, setSavingSpaceIds] = useState<readonly string[]>([]);
@@ -422,6 +436,15 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace, onSaveOperat
                       </>
                     )}
                   </div>
+
+                  {canManageImages && (
+                    <SpaceImageGallerySection
+                      space={draft}
+                      onAddImage={onAddImage}
+                      onRemoveImage={onRemoveImage}
+                      onSetPrimaryImage={onSetPrimaryImage}
+                    />
+                  )}
                 </div>
               )}
             </article>
@@ -481,6 +504,178 @@ function AdminSpaceImages({ space }: { readonly space: Space }) {
             </figure>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+function SpaceImageGallerySection({
+  space,
+  onAddImage,
+  onRemoveImage,
+  onSetPrimaryImage,
+}: {
+  readonly space: Space;
+  readonly onAddImage: (spaceId: string, imageUrl: string, altText?: string) => Promise<SpaceImageSaveResult>;
+  readonly onRemoveImage: (imageId: string) => Promise<SpaceImageSaveResult>;
+  readonly onSetPrimaryImage: (imageId: string) => Promise<SpaceImageSaveResult>;
+}) {
+  // 관리 목록은 실제 space_images 레코드만 다룬다 (대표 이미지 URL 기반 합성 fallback은 제외 —
+  // 그 fallback은 image_id가 실제 존재하지 않아 제거/대표 지정 RPC를 호출할 수 없다).
+  const images = space.images ?? [];
+  const [selectedFile, setSelectedFile] = useState<File | undefined>();
+  const [previewUrl, setPreviewUrl] = useState<string | undefined>();
+  const [isUploading, setIsUploading] = useState(false);
+  const [busyImageId, setBusyImageId] = useState<string | undefined>();
+  const [notice, setNotice] = useState<SpaceNotice | undefined>();
+  const [failedImageIds, setFailedImageIds] = useState<readonly string[]>([]);
+
+  const clearSelectedFile = (): void => {
+    if (previewUrl !== undefined) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(undefined);
+    setPreviewUrl(undefined);
+  };
+
+  const handleUpload = (): void => {
+    if (selectedFile === undefined || isUploading) {
+      return;
+    }
+    setIsUploading(true);
+    setNotice(undefined);
+    void uploadSpaceImage(selectedFile).then((uploadResult) => {
+      if (uploadResult.status === "error") {
+        setIsUploading(false);
+        setNotice({ tone: "error", message: uploadResult.message });
+        return;
+      }
+      void onAddImage(space.id, uploadResult.publicUrl).then((result) => {
+        setIsUploading(false);
+        if (result.status === "error") {
+          setNotice({ tone: "error", message: result.message });
+          return;
+        }
+        clearSelectedFile();
+        setNotice({ tone: "success", message: "사진을 추가했습니다." });
+      });
+    });
+  };
+
+  const handleRemove = (imageId: string): void => {
+    setBusyImageId(imageId);
+    setNotice(undefined);
+    void onRemoveImage(imageId).then((result) => {
+      setBusyImageId(undefined);
+      if (result.status === "error") {
+        setNotice({ tone: "error", message: result.message });
+        return;
+      }
+      setNotice({ tone: "success", message: "사진을 제거했습니다." });
+    });
+  };
+
+  const handleSetPrimary = (imageId: string): void => {
+    setBusyImageId(imageId);
+    setNotice(undefined);
+    void onSetPrimaryImage(imageId).then((result) => {
+      setBusyImageId(undefined);
+      if (result.status === "error") {
+        setNotice({ tone: "error", message: result.message });
+        return;
+      }
+      setNotice({ tone: "success", message: "대표 사진을 지정했습니다." });
+    });
+  };
+
+  return (
+    <div className="mt-2 grid gap-2 rounded-lg border border-[#DDE8D6] bg-white p-3">
+      <p className="text-sm font-extrabold text-[#172014]">사진 갤러리</p>
+      {images.length === 0 ? (
+        <p className="text-xs font-semibold text-[#819078]">등록된 사진이 없습니다.</p>
+      ) : (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {images.map((image, index) => {
+            const showImage = image.imageUrl.trim().length > 0 && !failedImageIds.includes(image.id);
+            const isBusy = busyImageId === image.id;
+            return (
+              <figure key={image.id} className="w-32 shrink-0 overflow-hidden rounded-lg border border-[#DDE8D6] bg-white">
+                <div className="h-20 bg-[#070A07]">
+                  {showImage ? (
+                    <img
+                      src={image.imageUrl}
+                      alt={image.altText ?? `${space.name} 사진 ${index + 1}`}
+                      className="h-full w-full object-cover"
+                      width="128"
+                      height="80"
+                      onError={() => setFailedImageIds((current) => [...current, image.id])}
+                    />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center bg-[linear-gradient(135deg,#070A07,#1A2419_52%,#2C3A2B)] text-[10px] font-black text-[#A6F15B]">
+                      LIME
+                    </div>
+                  )}
+                </div>
+                <figcaption className="grid gap-1 px-2 py-1.5">
+                  <span className="truncate text-[11px] font-bold text-[#5B6856]">
+                    {image.isPrimary ? "대표" : `${index + 1}번`}
+                  </span>
+                  <div className="flex gap-1">
+                    {!image.isPrimary && (
+                      <button
+                        type="button"
+                        disabled={isBusy}
+                        onClick={() => handleSetPrimary(image.id)}
+                        className="ui-button ui-button-ghost min-h-7 flex-1 px-1.5 py-1 text-[10px] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Star size={11} strokeWidth={2.3} />
+                        대표 지정
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      disabled={isBusy}
+                      onClick={() => handleRemove(image.id)}
+                      className="ui-button ui-button-danger min-h-7 flex-1 px-1.5 py-1 text-[10px] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Trash2 size={11} strokeWidth={2.3} />
+                      제거
+                    </button>
+                  </div>
+                </figcaption>
+              </figure>
+            );
+          })}
+        </div>
+      )}
+      <SpaceImageUploadField
+        selectedFile={selectedFile}
+        previewUrl={previewUrl}
+        onFileSelected={(file) => {
+          if (previewUrl !== undefined) {
+            URL.revokeObjectURL(previewUrl);
+          }
+          setSelectedFile(file);
+          setPreviewUrl(URL.createObjectURL(file));
+        }}
+        onClearFile={clearSelectedFile}
+        helperText="파일을 선택하고 아래 사진 추가 버튼을 누르면 이 공간의 사진 갤러리에 새 사진으로 등록됩니다."
+      />
+      {notice !== undefined && (
+        <div className={noticeClassName(notice.tone)} role={notice.tone === "error" ? "alert" : "status"}>
+          {notice.message}
+        </div>
+      )}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          disabled={selectedFile === undefined || isUploading}
+          onClick={handleUpload}
+          className="ui-button ui-button-primary min-h-9 px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <Upload size={13} strokeWidth={2.3} />
+          {isUploading ? "업로드 중" : "사진 추가"}
+        </button>
       </div>
     </div>
   );

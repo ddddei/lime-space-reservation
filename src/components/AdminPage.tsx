@@ -36,6 +36,10 @@ type AdminPageProps = {
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onSaveSpaceOperatingHours: (spaceId: string, operatingHours: readonly OperatingHour[]) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly canManageSpaceImages: boolean;
+  readonly onAddSpaceImage: (spaceId: string, imageUrl: string, altText?: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly onRemoveSpaceImage: (imageId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly onSetPrimarySpaceImage: (imageId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onRefreshApplications: () => void;
   readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly canManageAdminBlocks: boolean;
@@ -85,6 +89,10 @@ export function AdminPage(props: AdminPageProps) {
         onSaveSpace={props.onSaveSpace}
         onAddSpace={props.onAddSpace}
         onSaveOperatingHours={props.onSaveSpaceOperatingHours}
+        canManageImages={props.canManageSpaceImages}
+        onAddImage={props.onAddSpaceImage}
+        onRemoveImage={props.onRemoveSpaceImage}
+        onSetPrimaryImage={props.onSetPrimarySpaceImage}
       />
     </div>
   );

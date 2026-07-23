@@ -285,6 +285,32 @@ type ReservationDatabase = {
         };
         readonly Returns: AdminApplicationRow[] | null;
       };
+      readonly add_space_image: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_space_id: string;
+          readonly input_image_url: string;
+          readonly input_alt_text?: string | null;
+        };
+        readonly Returns: SpaceImageRow | SpaceImageRow[] | null;
+      };
+      readonly remove_space_image: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_image_id: string;
+        };
+        readonly Returns: SpaceImageRow | SpaceImageRow[] | null;
+      };
+      readonly set_primary_space_image: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_image_id: string;
+        };
+        readonly Returns: SpaceImageRow | SpaceImageRow[] | null;
+      };
     };
     readonly Enums: Record<string, never>;
     readonly CompositeTypes: Record<string, never>;

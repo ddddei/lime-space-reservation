@@ -47,7 +47,16 @@ export const formatDateLabel = (date: string): string =>
     weekday: "short",
   }).format(new Date(`${date}T00:00:00+09:00`));
 
-export const getCalendarDates = (baseDate = "2026-07-01", days = 62): readonly string[] => {
+const kstTodayFormatter = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Asia/Seoul",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export const getTodayDateValue = (): string => kstTodayFormatter.format(new Date());
+
+export const getCalendarDates = (baseDate = getTodayDateValue(), days = 62): readonly string[] => {
   const dates: string[] = [];
   const base = new Date(`${baseDate}T00:00:00+09:00`);
   for (let index = 0; index < days; index += 1) {
