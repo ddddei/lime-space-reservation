@@ -458,6 +458,9 @@ const mapOperatingHourRow = (row: OperatingHourRow): OperatingHour => ({
   isClosed: row.is_closed,
 });
 
+export const mapOperatingHourRows = (rows: readonly OperatingHourRow[]): readonly OperatingHour[] =>
+  [...rows].map(mapOperatingHourRow).sort((first, second) => first.dayOfWeek - second.dayOfWeek);
+
 const groupSpaceImagesBySpaceId = (rows: readonly SpaceImageRow[]): ReadonlyMap<string, readonly SpaceImage[]> => {
   const groupedImages = new Map<string, readonly SpaceImage[]>();
   for (const image of mapSpaceImageRows(rows)) {

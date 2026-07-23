@@ -137,6 +137,20 @@ type ReservationDatabase = {
         };
         readonly Returns: SpaceRow[] | null;
       };
+      readonly update_admin_space_operating_hours: {
+        readonly Args: {
+          readonly input_admin_name: string;
+          readonly input_admin_phone: string;
+          readonly input_space_id: string;
+          readonly input_operating_hours: readonly {
+            readonly day_of_week: number;
+            readonly open_time: string;
+            readonly close_time: string;
+            readonly is_closed: boolean;
+          }[];
+        };
+        readonly Returns: OperatingHourRow[] | null;
+      };
       readonly get_admin_applications: {
         readonly Args: {
           readonly input_admin_name: string;

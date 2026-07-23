@@ -17,6 +17,7 @@ import {
   mapAdminParticipantRows,
   mapAdminVerificationRow,
   mapMeetingRows,
+  mapOperatingHourRows,
   mapParticipantVerificationRow,
   mapReservationSessionRows,
   mapReservationSubmissionRowsToMeeting,
@@ -687,6 +688,39 @@ export const createAdminSpace = async (
   return { status: "ok", space: mapSpaceRows([row], operatingHourRows)[0] };
 };
 
+export type AdminSpaceOperatingHoursMutationResult =
+  | { readonly status: "ok"; readonly operatingHours: readonly OperatingHour[] }
+  | { readonly status: "error"; readonly message: string };
+
+export const updateAdminSpaceOperatingHours = async (
+  admin: AdminCredentials,
+  spaceId: string,
+  operatingHours: readonly OperatingHour[],
+): Promise<AdminSpaceOperatingHoursMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("update_admin_space_operating_hours", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_space_id: spaceId,
+    input_operating_hours: toOperatingHoursPayload(operatingHours),
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("update_admin_space_operating_hours RPC", response.error);
+    return { status: "error", message: toAdminSpaceOperatingHoursFailureMessage(response.error) };
+  }
+
+  const rows: readonly OperatingHourRow[] = response.data ?? [];
+  if (rows.length === 0) {
+    return { status: "error", message: ADMIN_SPACE_OPERATING_HOURS_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", operatingHours: mapOperatingHourRows(rows) };
+};
+
 const toOperatingHoursPayload = (hours: readonly OperatingHour[]) =>
   hours.map((hour) => ({
     day_of_week: hour.dayOfWeek,
@@ -821,6 +855,7 @@ const RESERVATION_SUBMIT_GENERIC_FAILURE_MESSAGE = "예약 신청에 실패했�
 const ADMIN_BLOCK_GENERIC_FAILURE_MESSAGE = "차단 일정을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_SPACE_GENERIC_FAILURE_MESSAGE = "공간 정보를 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE = "공간을 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const ADMIN_SPACE_OPERATING_HOURS_GENERIC_FAILURE_MESSAGE = "운영시간을 저장할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_CREATE_GENERIC_FAILURE_MESSAGE = "참가자를 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 const ADMIN_PARTICIPANT_DEACTIVATE_GENERIC_FAILURE_MESSAGE = "참가자를 비활성화할 수 없습니다. 잠시 후 다시 시도해 주세요.";
 
@@ -902,6 +937,19 @@ const toAdminSpaceCreateFailureMessage = (error: PostgrestError): string => {
 
   if (parts.length === 0) {
     return ADMIN_SPACE_CREATE_GENERIC_FAILURE_MESSAGE;
+  }
+  return parts.join(" / ");
+};
+
+const toAdminSpaceOperatingHoursFailureMessage = (error: PostgrestError): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return ADMIN_SPACE_OPERATING_HOURS_GENERIC_FAILURE_MESSAGE;
   }
   return parts.join(" / ");
 };

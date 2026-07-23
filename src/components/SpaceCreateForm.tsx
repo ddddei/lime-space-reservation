@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { allDayHours, chitChatHours, teaPartyHours, youthBuildingHours } from "../data/operatingHours";
-import { getTimeRangeBetween, toMinutes } from "../lib/date";
+import { toMinutes } from "../lib/date";
+import { buildCustomOperatingHours } from "../lib/operatingHoursSummary";
 import { uploadSpaceImage } from "../lib/spaceImageUpload";
+import { OperatingHoursCustomFields } from "./OperatingHoursCustomFields";
+import { SpaceImageUploadField } from "./SpaceImageUploadField";
 import type { OperatingHour, SpaceCategory } from "../types/reservation";
 import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 
@@ -20,23 +23,6 @@ const presetHours: Record<Exclude<OperatingHoursPreset, "custom">, readonly Oper
   chitchat: chitChatHours,
   "tea-party": teaPartyHours,
 };
-
-const weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const allDaysOfWeek = [0, 1, 2, 3, 4, 5, 6] as const;
-
-const customStartTimeOptions = getTimeRangeBetween("00:00", "24:00");
-const customEndTimeOptions = [...customStartTimeOptions.slice(1), "24:00"];
-
-const buildCustomOperatingHours = (
-  startTime: string,
-  endTime: string,
-  closedDays: ReadonlySet<number>,
-): readonly OperatingHour[] =>
-  allDaysOfWeek.map((dayOfWeek) =>
-    closedDays.has(dayOfWeek)
-      ? { dayOfWeek, openTime: "00:00", closeTime: "00:00", isClosed: true }
-      : { dayOfWeek, openTime: startTime, closeTime: endTime, isClosed: false },
-  );
 
 export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormProps) {
   const [name, setName] = useState("");
@@ -99,38 +85,18 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
           <input type="number" min={1} value={capacity} onChange={(event) => setCapacity(Number(event.target.value))} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium" />
         </label>
         <TextField label="사진 URL" value={imageUrl} onChange={setImageUrl} />
-        <div className="grid gap-1 text-sm font-bold text-[#172014]">
-          사진 파일 업로드
-          <input
-            type="file"
-            accept="image/*"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file === undefined) {
-                return;
-              }
-              if (previewUrl !== undefined) {
-                URL.revokeObjectURL(previewUrl);
-              }
-              setSelectedFile(file);
-              setPreviewUrl(URL.createObjectURL(file));
-              event.target.value = "";
-            }}
-            className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium"
-          />
-          {selectedFile !== undefined && (
-            <div className="mt-1 flex items-center gap-2 text-xs font-medium text-[#4B5945]">
-              {previewUrl !== undefined && (
-                <img src={previewUrl} alt="선택한 사진 미리보기" className="h-10 w-10 rounded object-cover" />
-              )}
-              <span className="truncate">{selectedFile.name}</span>
-              <button type="button" onClick={clearSelectedFile} className="shrink-0 rounded border border-[#DDE8D6] px-2 py-1 font-bold text-[#172014]">
-                선택 취소
-              </button>
-            </div>
-          )}
-          <span className="text-xs font-medium text-[#4B5945]">파일을 선택하면 사진 URL 입력값 대신 업로드된 파일이 사용됩니다.</span>
-        </div>
+        <SpaceImageUploadField
+          selectedFile={selectedFile}
+          previewUrl={previewUrl}
+          onFileSelected={(file) => {
+            if (previewUrl !== undefined) {
+              URL.revokeObjectURL(previewUrl);
+            }
+            setSelectedFile(file);
+            setPreviewUrl(URL.createObjectURL(file));
+          }}
+          onClearFile={clearSelectedFile}
+        />
         <TextField label="특징" value={features} onChange={setFeatures} />
         <div className="grid gap-1 text-sm font-bold text-[#172014] md:col-span-2">
           <label className="grid gap-1">
@@ -144,49 +110,14 @@ export function SpaceCreateForm({ nextSortOrder, onAddSpace }: SpaceCreateFormPr
             </select>
           </label>
           {operatingPreset === "custom" && (
-            <div className="mt-2 grid gap-2 rounded-lg border border-[#DDE8D6] bg-white p-3">
-              <div className="flex flex-wrap items-end gap-3">
-                <label className="grid gap-1 text-sm font-bold text-[#172014]">
-                  시작 시각
-                  <select value={customStartTime} onChange={(event) => setCustomStartTime(event.target.value)} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium">
-                    {customStartTimeOptions.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="grid gap-1 text-sm font-bold text-[#172014]">
-                  종료 시각
-                  <select value={customEndTime} onChange={(event) => setCustomEndTime(event.target.value)} className="rounded-lg border border-[#DDE8D6] px-3 py-2 font-medium">
-                    {customEndTimeOptions.map((time) => (
-                      <option key={time} value={time}>
-                        {time}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="flex flex-wrap gap-3 text-sm font-medium text-[#172014]">
-                {allDaysOfWeek.map((dayOfWeek) => (
-                  <label key={dayOfWeek} className="flex items-center gap-1">
-                    <input
-                      type="checkbox"
-                      checked={closedDays.has(dayOfWeek)}
-                      onChange={() => toggleClosedDay(dayOfWeek)}
-                      className="h-4 w-4 accent-[#77B82A]"
-                    />
-                    {weekdayLabels[dayOfWeek]} 휴무
-                  </label>
-                ))}
-              </div>
-              {isCustomRangeInvalid && (
-                <p className="text-xs font-bold text-[#C9443E]">종료 시각은 시작 시각보다 늦어야 합니다.</p>
-              )}
-              <p className="text-xs font-medium text-[#4B5945]">
-                참고: 00:00~24:00로 설정해도 참가자 화면에는 09~22시로 제한되어 보입니다.
-              </p>
-            </div>
+            <OperatingHoursCustomFields
+              startTime={customStartTime}
+              endTime={customEndTime}
+              closedDays={closedDays}
+              onStartTimeChange={setCustomStartTime}
+              onEndTimeChange={setCustomEndTime}
+              onToggleClosedDay={toggleClosedDay}
+            />
           )}
         </div>
         <div className="flex flex-wrap items-end gap-3 text-sm font-bold text-[#172014]">

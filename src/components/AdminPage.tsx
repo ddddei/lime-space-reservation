@@ -2,7 +2,7 @@ import { AdminBlockForm, type AdminBlockFormInput } from "./AdminBlockForm";
 import { AdminReservationTable } from "./AdminReservationTable";
 import { AdminUserChecklist, type CreateParticipantFormInput } from "./AdminUserChecklist";
 import { SpaceAdminEditor } from "./SpaceAdminEditor";
-import type { AdminApplication, AdminBlock, ParticipantUser, Space, UserLevel } from "../types/reservation";
+import type { AdminApplication, AdminBlock, OperatingHour, ParticipantUser, Space, UserLevel } from "../types/reservation";
 import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 
 type ParticipantMutationResult =
@@ -24,6 +24,7 @@ type AdminPageProps = {
   readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly onSaveSpaceOperatingHours: (spaceId: string, operatingHours: readonly OperatingHour[]) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly onRefreshApplications: () => void;
   readonly onCancelSession: (sessionId: string) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
   readonly canManageAdminBlocks: boolean;
@@ -60,7 +61,12 @@ export function AdminPage(props: AdminPageProps) {
         onSaveBlock={props.onSaveBlock}
         onDeactivateBlock={props.onDeactivateBlock}
       />
-      <SpaceAdminEditor spaces={props.spaces} onSaveSpace={props.onSaveSpace} onAddSpace={props.onAddSpace} />
+      <SpaceAdminEditor
+        spaces={props.spaces}
+        onSaveSpace={props.onSaveSpace}
+        onAddSpace={props.onAddSpace}
+        onSaveOperatingHours={props.onSaveSpaceOperatingHours}
+      />
     </div>
   );
 }
