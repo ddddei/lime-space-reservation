@@ -56,7 +56,7 @@ const kstTodayFormatter = new Intl.DateTimeFormat("en-CA", {
 
 export const getTodayDateValue = (): string => kstTodayFormatter.format(new Date());
 
-export const getCalendarDates = (baseDate = getTodayDateValue(), days = 62): readonly string[] => {
+export const getCalendarDates = (baseDate = getTodayDateValue(), days = 183): readonly string[] => {
   const dates: string[] = [];
   const base = new Date(`${baseDate}T00:00:00+09:00`);
   for (let index = 0; index < days; index += 1) {

@@ -1,5 +1,7 @@
 import { useState } from "react";
-import { ChevronDown, ChevronUp, Plus, RotateCcw, UserX } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus, RefreshCw, RotateCcw, UserX } from "lucide-react";
+import { PARTICIPANT_COHORTS } from "../data/settings";
+import { isSessionAfterReset } from "../lib/reservationRules";
 import type { AdminApplication, ParticipantUser, UserLevel } from "../types/reservation";
 
 export type CreateParticipantFormInput = {
@@ -7,7 +9,10 @@ export type CreateParticipantFormInput = {
   readonly phone: string;
   readonly level: UserLevel;
   readonly memo?: string;
+  readonly cohort: string;
 };
+
+type CohortFilter = "all" | (typeof PARTICIPANT_COHORTS)[number];
 
 type ParticipantMutationResult =
   | { readonly status: "ok" }
@@ -23,6 +28,8 @@ type AdminUserChecklistProps = {
   readonly onCreateParticipant: (input: CreateParticipantFormInput) => Promise<ParticipantMutationResult>;
   readonly onDeactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
+  readonly onUpdateCohort: (user: ParticipantUser, nextCohort: string) => Promise<boolean>;
+  readonly onResetUsage: (user: ParticipantUser) => Promise<boolean>;
 };
 
 const defaultVisibleCount = 6;
@@ -37,15 +44,19 @@ export function AdminUserChecklist({
   onCreateParticipant,
   onDeactivateParticipant,
   onReactivateParticipant,
+  onUpdateCohort,
+  onResetUsage,
 }: AdminUserChecklistProps) {
   const [showAll, setShowAll] = useState(false);
   const [showInactive, setShowInactive] = useState(false);
+  const [cohortFilter, setCohortFilter] = useState<CohortFilter>("all");
   const [savingIds, setSavingIds] = useState<readonly string[]>([]);
   const [errorsById, setErrorsById] = useState<Readonly<Record<string, string | undefined>>>({});
 
   const activeUsers = users.filter((user) => user.isActive);
   const inactiveUsers = users.filter((user) => !user.isActive);
-  const listedUsers = showInactive ? users : activeUsers;
+  const scopedUsers = showInactive ? users : activeUsers;
+  const listedUsers = cohortFilter === "all" ? scopedUsers : scopedUsers.filter((user) => user.cohort === cohortFilter);
   const visibleUsers = showAll ? listedUsers : listedUsers.slice(0, defaultVisibleCount);
 
   const handleToggleApproval = (user: ParticipantUser): void => {
@@ -73,6 +84,40 @@ export function AdminUserChecklist({
       .then((success) => {
         if (!success) {
           setErrorsById((current) => ({ ...current, [user.id]: "Level을 변경하지 못했습니다." }));
+        }
+      })
+      .finally(() => {
+        setSavingIds((current) => current.filter((id) => id !== user.id));
+      });
+  };
+
+  const handleCohortChange = (user: ParticipantUser, nextCohort: string): void => {
+    if (nextCohort === user.cohort) {
+      return;
+    }
+    setSavingIds((current) => [...current, user.id]);
+    setErrorsById((current) => ({ ...current, [user.id]: undefined }));
+    void onUpdateCohort(user, nextCohort)
+      .then((success) => {
+        if (!success) {
+          setErrorsById((current) => ({ ...current, [user.id]: "기수를 변경하지 못했습니다." }));
+        }
+      })
+      .finally(() => {
+        setSavingIds((current) => current.filter((id) => id !== user.id));
+      });
+  };
+
+  const handleResetUsage = (user: ParticipantUser): void => {
+    if (!window.confirm(`${user.name}님의 사용시간을 초기화할까요? 오늘 이후 예약만 차감됩니다.`)) {
+      return;
+    }
+    setSavingIds((current) => [...current, user.id]);
+    setErrorsById((current) => ({ ...current, [user.id]: undefined }));
+    void onResetUsage(user)
+      .then((success) => {
+        if (!success) {
+          setErrorsById((current) => ({ ...current, [user.id]: "사용시간을 초기화하지 못했습니다." }));
         }
       })
       .finally(() => {
@@ -122,6 +167,20 @@ export function AdminUserChecklist({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
+            기수
+            <select
+              value={cohortFilter}
+              onChange={(event) => setCohortFilter(event.target.value as CohortFilter)}
+              className="rounded border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#172014]"
+              aria-label="기수 필터"
+            >
+              <option value="all">전체</option>
+              {PARTICIPANT_COHORTS.map((cohort) => (
+                <option key={cohort} value={cohort}>{cohort}</option>
+              ))}
+            </select>
+          </label>
           {inactiveUsers.length > 0 && (
             <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
               <input
@@ -155,6 +214,7 @@ export function AdminUserChecklist({
           <thead>
             <tr className="border-b border-[#DDE8D6] text-xs text-[#5B6856]">
               <th className="py-2 pr-3">참여자</th>
+              <th className="px-3">기수</th>
               <th className="px-3">예약 승인</th>
               <th className="px-3">예약 가능</th>
               <th className="px-3">Level</th>
@@ -168,6 +228,7 @@ export function AdminUserChecklist({
             {visibleUsers.map((user) => {
               const usedBlocks = applications
                 .filter((application) => application.applicantParticipantId === user.id && application.sessionStatus !== "cancelled")
+                .filter((application) => isSessionAfterReset(application.date, user.usageResetOn))
                 .reduce((total, application) => total + application.blockCount, 0);
               const canReserve = user.isActive && user.hasAdminApproval && usedBlocks < user.maxBlocks;
               const isSaving = savingIds.includes(user.id);
@@ -178,6 +239,23 @@ export function AdminUserChecklist({
                     <span className={user.isActive ? "" : "text-[#A3ACA0]"}>{user.name}</span>
                     {!user.isActive && <span className="ml-2 rounded-full bg-[#EAEAE6] px-2 py-0.5 text-[10px] font-extrabold text-[#7A8175]">비활성</span>}
                     <span className="block text-xs font-medium text-[#819078]">끝자리 {user.phoneLast4}</span>
+                  </td>
+                  <td className="px-3">
+                    {canManageParticipants ? (
+                      <select
+                        value={user.cohort}
+                        disabled={isSaving || !user.isActive}
+                        onChange={(event) => handleCohortChange(user, event.target.value)}
+                        className="rounded border border-[#DDE8D6] px-2 py-1 text-xs font-bold text-[#172014] disabled:bg-[#F1F8EC] disabled:text-[#819078]"
+                        aria-label={`${user.name} 기수`}
+                      >
+                        {PARTICIPANT_COHORTS.map((cohort) => (
+                          <option key={cohort} value={cohort}>{cohort}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-xs font-bold text-[#5B6856]">{user.cohort}</span>
+                    )}
                   </td>
                   <td className="px-3">
                     <label className="inline-flex items-center gap-2 text-xs font-bold text-[#5B6856]">
@@ -219,6 +297,11 @@ export function AdminUserChecklist({
                   </td>
                   <td className="px-3 text-[#5B6856]">
                     {usedBlocks / 2}/{user.maxBlocks / 2}시간
+                    {user.usageResetOn !== undefined && (
+                      <span className="ml-1 inline-block rounded-full bg-[#F1F8EC] px-2 py-0.5 text-[10px] font-extrabold text-[#5F9820]">
+                        초기화: {user.usageResetOn}
+                      </span>
+                    )}
                   </td>
                   <td className="max-w-[220px] px-3 text-xs text-[#5B6856]">
                     {getDocumentSummary(user)}
@@ -228,27 +311,40 @@ export function AdminUserChecklist({
                   </td>
                   {canManageParticipants && (
                     <td className="px-3">
-                      {user.isActive ? (
-                        <button
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => handleDeactivate(user)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-extrabold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <UserX size={13} strokeWidth={2.3} />
-                          비활성
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={isSaving}
-                          onClick={() => handleReactivate(user)}
-                          className="inline-flex items-center gap-1 rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          <RotateCcw size={13} strokeWidth={2.3} />
-                          재활성
-                        </button>
-                      )}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {user.isActive && (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => handleResetUsage(user)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <RefreshCw size={13} strokeWidth={2.3} />
+                            사용시간 초기화
+                          </button>
+                        )}
+                        {user.isActive ? (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => handleDeactivate(user)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#F1C5C2] px-2 py-1 text-xs font-extrabold text-[#C9443E] hover:bg-[#FCEBEA] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <UserX size={13} strokeWidth={2.3} />
+                            비활성
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={isSaving}
+                            onClick={() => handleReactivate(user)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-[#DDE8D6] px-2 py-1 text-xs font-extrabold text-[#5B6856] hover:border-[#77B82A] disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <RotateCcw size={13} strokeWidth={2.3} />
+                            재활성
+                          </button>
+                        )}
+                      </div>
                     </td>
                   )}
                 </tr>
@@ -276,6 +372,7 @@ function CreateParticipantPanel({ onCreateParticipant }: CreateParticipantPanelP
   const [phone, setPhone] = useState("");
   const [level, setLevel] = useState<UserLevel>(1);
   const [memo, setMemo] = useState("");
+  const [cohort, setCohort] = useState<string>(PARTICIPANT_COHORTS[0]);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<CreateParticipantNotice | undefined>();
 
@@ -284,6 +381,7 @@ function CreateParticipantPanel({ onCreateParticipant }: CreateParticipantPanelP
     setPhone("");
     setLevel(1);
     setMemo("");
+    setCohort(PARTICIPANT_COHORTS[0]);
   };
 
   const handleSubmit = (): void => {
@@ -298,7 +396,7 @@ function CreateParticipantPanel({ onCreateParticipant }: CreateParticipantPanelP
 
     setSaving(true);
     setNotice(undefined);
-    void onCreateParticipant({ name: name.trim(), phone: phone.trim(), level, memo: memo.trim() })
+    void onCreateParticipant({ name: name.trim(), phone: phone.trim(), level, memo: memo.trim(), cohort })
       .then((result) => {
         if (result.status === "error") {
           setNotice({ tone: "error", message: result.message });
@@ -327,7 +425,7 @@ function CreateParticipantPanel({ onCreateParticipant }: CreateParticipantPanelP
       </button>
       {expanded && (
         <div className="grid gap-3 border-t border-[#EBF2E7] p-3">
-          <div className="grid gap-3 md:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-5">
             <label className="grid gap-1 text-xs font-bold text-[#172014]">
               이름
               <input
@@ -363,6 +461,19 @@ function CreateParticipantPanel({ onCreateParticipant }: CreateParticipantPanelP
               >
                 <option value={1}>Level 1</option>
                 <option value={2}>Level 2</option>
+              </select>
+            </label>
+            <label className="grid gap-1 text-xs font-bold text-[#172014]">
+              기수
+              <select
+                value={cohort}
+                disabled={saving}
+                onChange={(event) => setCohort(event.target.value)}
+                className="rounded border border-[#DDE8D6] px-2 py-1.5 text-sm"
+              >
+                {PARTICIPANT_COHORTS.map((cohortOption) => (
+                  <option key={cohortOption} value={cohortOption}>{cohortOption}</option>
+                ))}
               </select>
             </label>
             <label className="grid gap-1 text-xs font-bold text-[#172014]">

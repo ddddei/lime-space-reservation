@@ -27,6 +27,8 @@ type AdminPageProps = {
   readonly onCreateParticipant: (input: CreateParticipantFormInput) => Promise<ParticipantMutationResult>;
   readonly onDeactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
   readonly onReactivateParticipant: (user: ParticipantUser) => Promise<ParticipantMutationResult>;
+  readonly onUpdateCohort: (user: ParticipantUser, nextCohort: string) => Promise<boolean>;
+  readonly onResetUsage: (user: ParticipantUser) => Promise<boolean>;
   readonly adminAccounts: readonly Admin[];
   readonly currentAdminId: string;
   readonly canManageAdminAccounts: boolean;
@@ -60,6 +62,8 @@ export function AdminPage(props: AdminPageProps) {
         onCreateParticipant={props.onCreateParticipant}
         onDeactivateParticipant={props.onDeactivateParticipant}
         onReactivateParticipant={props.onReactivateParticipant}
+        onUpdateCohort={props.onUpdateCohort}
+        onResetUsage={props.onResetUsage}
       />
       <AdminAccountChecklist
         accounts={props.adminAccounts}

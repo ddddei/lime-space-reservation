@@ -28,10 +28,12 @@ import {
   fetchParticipantReservationReadModel,
   fetchReservationReadModel,
   removeSpaceImage,
+  resetParticipantUsage,
   saveAdminBlock,
   saveAdminSpace,
   setPrimarySpaceImage,
   updateAdminSpaceOperatingHours,
+  updateParticipantCohort,
   updateParticipantLevel,
   updateParticipantReservationApproval,
   type AdminBlockMutationInput,
@@ -267,6 +269,47 @@ export function App() {
     return true;
   };
 
+  const handleUpdateParticipantCohort = async (user: ParticipantUser, nextCohort: string): Promise<boolean> => {
+    if (allowMockFallback) {
+      setAdminUsers((current) => current.map((item) => (item.id === user.id ? { ...item, cohort: nextCohort } : item)));
+      return true;
+    }
+    if (authenticatedAdmin === undefined) {
+      return false;
+    }
+    const result = await updateParticipantCohort(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      user.id,
+      nextCohort,
+    );
+    if (result.status !== "ok") {
+      return false;
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+    void refreshAdminReadModel();
+    return true;
+  };
+
+  const handleResetParticipantUsage = async (user: ParticipantUser): Promise<boolean> => {
+    if (allowMockFallback) {
+      // 목업 폴백 모드에서는 초기화 버튼 자체를 숨기므로(canManageParticipants=false) 여기 도달하지 않는다.
+      return false;
+    }
+    if (authenticatedAdmin === undefined) {
+      return false;
+    }
+    const result = await resetParticipantUsage(
+      { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
+      user.id,
+    );
+    if (result.status !== "ok") {
+      return false;
+    }
+    setAdminUsers((current) => current.map((item) => (item.id === user.id ? result.user : item)));
+    void refreshAdminReadModel();
+    return true;
+  };
+
   const handleCreateParticipant = async (
     input: CreateParticipantFormInput,
   ): Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }> => {
@@ -317,7 +360,7 @@ export function App() {
     }
     const result = await createAdminParticipant(
       { name: authenticatedAdmin.name, phone: authenticatedAdmin.phone },
-      { name: user.name, phone: user.phone, level: user.level, memo: user.memo },
+      { name: user.name, phone: user.phone, level: user.level, memo: user.memo, cohort: user.cohort },
     );
     if (result.status !== "ok") {
       return { status: "error", message: result.message };
@@ -734,6 +777,8 @@ export function App() {
               onCreateParticipant={handleCreateParticipant}
               onDeactivateParticipant={handleDeactivateParticipant}
               onReactivateParticipant={handleReactivateParticipant}
+              onUpdateCohort={handleUpdateParticipantCohort}
+              onResetUsage={handleResetParticipantUsage}
               adminAccounts={adminAccounts}
               currentAdminId={authenticatedAdmin.id}
               canManageAdminAccounts={!allowMockFallback}
@@ -924,6 +969,8 @@ const readStoredParticipantUser = (): ParticipantUser | undefined => {
     maxBlocks: toNumberValue(record.maxBlocks) ?? 0,
     memo: toStringValue(record.memo),
     isActive: record.isActive === true,
+    cohort: toOptionalStringValue(record.cohort) ?? "1기",
+    usageResetOn: toOptionalStringValue(record.usageResetOn),
     createdAt: toOptionalStringValue(record.createdAt),
     updatedAt: toOptionalStringValue(record.updatedAt),
   };

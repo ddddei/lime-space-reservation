@@ -146,6 +146,8 @@ export type AdminParticipantRow = {
   readonly is_active: boolean | null;
   readonly created_at: string | null;
   readonly updated_at: string | null;
+  readonly cohort?: string | null;
+  readonly usage_reset_on?: string | null;
 };
 
 export type SubmitReservationSessionInput = {
@@ -282,6 +284,8 @@ export const mapAdminParticipantRows = (rows: readonly AdminParticipantRow[]): r
     maxBlocks: row.max_blocks ?? 0,
     memo: row.memo ?? "",
     isActive: row.is_active ?? false,
+    cohort: row.cohort ?? "1기",
+    usageResetOn: row.usage_reset_on ?? undefined,
     createdAt: row.created_at ?? undefined,
     updatedAt: row.updated_at ?? undefined,
   }));
@@ -401,6 +405,10 @@ export const mapParticipantVerificationRow = (row: ParticipantVerificationRow, s
   maxBlocks: row.max_blocks ?? 0,
   memo: row.memo ?? "",
   isActive: row.is_active ?? true,
+  // verify_participant RPC는 이번 작업 범위에서 cohort/usage_reset_on을 반환하지 않는다(지시서 범위 외).
+  // 참가자 본인 로그인 화면은 기본값(1기, 초기화 없음)으로 표시하고, 실제 한도 검증은 서버(submit_reservation_application)에서 수행한다.
+  cohort: "1기",
+  usageResetOn: undefined,
   createdAt: row.created_at ?? undefined,
   updatedAt: row.updated_at ?? undefined,
 });

@@ -13,3 +13,7 @@ export const LEVEL_MAX_BLOCKS: Record<UserLevel, number> = {
   1: 16,
   2: 48,
 };
+
+export const PARTICIPANT_COHORTS = ["1기", "2기"] as const;
+
+export const CALENDAR_MONTHS_AHEAD = 6;
