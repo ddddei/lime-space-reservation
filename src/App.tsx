@@ -26,6 +26,7 @@ import {
   fetchReservationReadModel,
   saveAdminBlock,
   saveAdminSpace,
+  updateAdminSpaceOperatingHours,
   updateParticipantLevel,
   updateParticipantReservationApproval,
   type AdminBlockMutationInput,
@@ -34,7 +35,7 @@ import {
 } from "./lib/supabaseReservationApi";
 import type { CreateParticipantFormInput } from "./components/AdminUserChecklist";
 import { getSelectedTimeRange } from "./lib/timeSelection";
-import type { Admin, AdminApplication, AdminBlock, Meeting, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
+import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "./types/reservation";
 
 type AppMode = "user" | "admin";
 type ParticipantReservationSnapshot = {
@@ -442,6 +443,24 @@ export function App() {
     return { status: "ok" };
   };
 
+  const handleSaveAdminSpaceOperatingHours = async (spaceId: string, operatingHours: readonly OperatingHour[]): Promise<SessionActionResult> => {
+    if (allowMockFallback) {
+      setAdminSpaces((current) => current.map((item) => item.id === spaceId ? { ...item, operatingHours } : item));
+      setPublicSpaces((current) => current.map((item) => item.id === spaceId ? { ...item, operatingHours } : item));
+      return { status: "ok" };
+    }
+    if (authenticatedAdmin === undefined) {
+      return { status: "error", message: "관리자 정보를 확인할 수 없습니다." };
+    }
+    const result = await updateAdminSpaceOperatingHours({ name: authenticatedAdmin.name, phone: authenticatedAdmin.phone }, spaceId, operatingHours);
+    if (result.status === "error") {
+      return { status: "error", message: result.message };
+    }
+    setAdminSpaces((current) => current.map((item) => item.id === spaceId ? { ...item, operatingHours: result.operatingHours } : item));
+    await Promise.all([refreshAdminReadModel(), refreshReservationReadModel()]);
+    return { status: "ok" };
+  };
+
   const handleAddAdminSpace = async (space: CreateAdminSpaceInput): Promise<SessionActionResult> => {
     if (allowMockFallback) {
       setAdminSpaces((current) => [...current, { ...space }]);
@@ -601,6 +620,7 @@ export function App() {
               onReactivateParticipant={handleReactivateParticipant}
               onSaveSpace={handleSaveAdminSpace}
               onAddSpace={handleAddAdminSpace}
+              onSaveSpaceOperatingHours={handleSaveAdminSpaceOperatingHours}
               onRefreshApplications={() => {
                 void refreshAdminReadModel();
               }}

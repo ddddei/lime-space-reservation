@@ -1,15 +1,27 @@
 import { useMemo, useState } from "react";
 import { Eye, EyeOff, Save, X } from "lucide-react";
 import { getSpaceCategoryLabel } from "../lib/displayLabels";
+import {
+  analyzeOperatingHours,
+  buildCustomOperatingHours,
+  isCustomOperatingHoursRangeInvalid,
+  summarizeOperatingHoursLines,
+} from "../lib/operatingHoursSummary";
+import { uploadSpaceImage } from "../lib/spaceImageUpload";
+import { OperatingHoursCustomFields } from "./OperatingHoursCustomFields";
 import { SpaceCreateForm } from "./SpaceCreateForm";
-import type { Space, SpaceImage } from "../types/reservation";
+import { SpaceImageUploadField } from "./SpaceImageUploadField";
+import type { OperatingHour, Space, SpaceImage } from "../types/reservation";
 import type { CreateAdminSpaceInput } from "../lib/supabaseReservationApi";
 import type { ReactNode } from "react";
 
+type SaveResult = { readonly status: "ok" } | { readonly status: "error"; readonly message: string };
+
 type SpaceAdminEditorProps = {
   readonly spaces: readonly Space[];
-  readonly onSaveSpace: (space: Space) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
-  readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<{ readonly status: "ok" } | { readonly status: "error"; readonly message: string }>;
+  readonly onSaveSpace: (space: Space) => Promise<SaveResult>;
+  readonly onAddSpace: (space: CreateAdminSpaceInput) => Promise<SaveResult>;
+  readonly onSaveOperatingHours: (spaceId: string, operatingHours: readonly OperatingHour[]) => Promise<SaveResult>;
 };
 
 type SpaceNotice = {
@@ -17,11 +29,26 @@ type SpaceNotice = {
   readonly message: string;
 };
 
-export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdminEditorProps) {
+type OperatingHoursDraft = {
+  readonly startTime: string;
+  readonly endTime: string;
+  readonly closedDays: ReadonlySet<number>;
+  readonly warningMessage?: string;
+};
+
+export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace, onSaveOperatingHours }: SpaceAdminEditorProps) {
   const [expandedSpaceIds, setExpandedSpaceIds] = useState<readonly string[]>([]);
   const [draftsById, setDraftsById] = useState<Readonly<Record<string, Space>>>({});
   const [savingSpaceIds, setSavingSpaceIds] = useState<readonly string[]>([]);
   const [noticesById, setNoticesById] = useState<Readonly<Record<string, SpaceNotice | undefined>>>({});
+
+  const [selectedFilesById, setSelectedFilesById] = useState<Readonly<Record<string, File | undefined>>>({});
+  const [previewUrlsById, setPreviewUrlsById] = useState<Readonly<Record<string, string | undefined>>>({});
+
+  const [operatingHoursOpenIds, setOperatingHoursOpenIds] = useState<readonly string[]>([]);
+  const [operatingHoursDraftById, setOperatingHoursDraftById] = useState<Readonly<Record<string, OperatingHoursDraft>>>({});
+  const [operatingHoursSavingIds, setOperatingHoursSavingIds] = useState<readonly string[]>([]);
+  const [operatingHoursNoticesById, setOperatingHoursNoticesById] = useState<Readonly<Record<string, SpaceNotice | undefined>>>({});
 
   const sortedSpaces = useMemo(
     () => [...spaces].sort((first, second) => first.sortOrder - second.sortOrder),
@@ -51,6 +78,120 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdmin
     });
   };
 
+  const clearSelectedFile = (spaceId: string): void => {
+    const previewUrl = previewUrlsById[spaceId];
+    if (previewUrl !== undefined) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFilesById((current) => ({ ...current, [spaceId]: undefined }));
+    setPreviewUrlsById((current) => ({ ...current, [spaceId]: undefined }));
+  };
+
+  // ①: 파일을 선택하지 않고 저장하면 업로드 단계 없이 기존 handleSave 흐름을 그대로 탄다.
+  const handleSaveSpaceButtonClick = (draft: Space, space: Space): void => {
+    const validationMessage = validateSpace(draft);
+    if (validationMessage !== undefined) {
+      setNoticesById((current) => ({ ...current, [space.id]: { tone: "error", message: validationMessage } }));
+      return;
+    }
+
+    const selectedFile = selectedFilesById[space.id];
+    if (selectedFile === undefined) {
+      handleSave(draft, "공간 정보를 저장했습니다.");
+      return;
+    }
+
+    setSavingSpaceIds((current) => [...current, space.id]);
+    setNoticesById((current) => ({ ...current, [space.id]: undefined }));
+    void uploadSpaceImage(selectedFile).then((uploadResult) => {
+      if (uploadResult.status === "error") {
+        setSavingSpaceIds((current) => current.filter((id) => id !== space.id));
+        setNoticesById((current) => ({ ...current, [space.id]: { tone: "error", message: uploadResult.message } }));
+        return;
+      }
+
+      const draftWithImage = { ...draft, imageUrl: uploadResult.publicUrl };
+      void onSaveSpace(draftWithImage).then((result) => {
+        setSavingSpaceIds((current) => current.filter((id) => id !== space.id));
+        if (result.status === "error") {
+          setNoticesById((current) => ({ ...current, [space.id]: { tone: "error", message: result.message } }));
+          return;
+        }
+        setDraftsById((current) => ({ ...current, [space.id]: draftWithImage }));
+        clearSelectedFile(space.id);
+        setNoticesById((current) => ({ ...current, [space.id]: { tone: "success", message: "공간 정보를 저장했습니다." } }));
+      });
+    });
+  };
+
+  const toggleOperatingHoursEditor = (space: Space): void => {
+    const isOpen = operatingHoursOpenIds.includes(space.id);
+    if (isOpen) {
+      setOperatingHoursOpenIds((current) => current.filter((id) => id !== space.id));
+      return;
+    }
+
+    // ③: 요일마다 시간이 다른(예: 티파티) 공간을 열면 공통 시간으로 환원 불가능하므로 경고를 함께 초기화한다.
+    const shape = analyzeOperatingHours(space.operatingHours);
+    setOperatingHoursDraftById((current) => ({
+      ...current,
+      [space.id]: {
+        startTime: shape.startTime,
+        endTime: shape.endTime,
+        closedDays: shape.closedDays,
+        warningMessage: shape.isUniform ? undefined : "요일별 상세 시간은 저장 시 공통 시간으로 통일됩니다.",
+      },
+    }));
+    setOperatingHoursOpenIds((current) => [...current, space.id]);
+  };
+
+  const updateOperatingHoursDraft = (spaceId: string, patch: Partial<OperatingHoursDraft>): void => {
+    setOperatingHoursDraftById((current) => {
+      const existing = current[spaceId];
+      if (existing === undefined) {
+        return current;
+      }
+      return { ...current, [spaceId]: { ...existing, ...patch } };
+    });
+  };
+
+  const toggleOperatingHoursClosedDay = (spaceId: string, dayOfWeek: number): void => {
+    setOperatingHoursDraftById((current) => {
+      const existing = current[spaceId];
+      if (existing === undefined) {
+        return current;
+      }
+      const next = new Set(existing.closedDays);
+      if (next.has(dayOfWeek)) {
+        next.delete(dayOfWeek);
+      } else {
+        next.add(dayOfWeek);
+      }
+      return { ...current, [spaceId]: { ...existing, closedDays: next } };
+    });
+  };
+
+  // ②: 공간 정보만 저장할 때는 이 함수가 아예 호출되지 않으므로 운영시간 RPC는 타지 않는다.
+  const handleSaveOperatingHours = (space: Space): void => {
+    const draft = operatingHoursDraftById[space.id];
+    if (draft === undefined || isCustomOperatingHoursRangeInvalid(draft.startTime, draft.endTime)) {
+      return;
+    }
+    const operatingHours = buildCustomOperatingHours(draft.startTime, draft.endTime, draft.closedDays);
+
+    setOperatingHoursSavingIds((current) => [...current, space.id]);
+    setOperatingHoursNoticesById((current) => ({ ...current, [space.id]: undefined }));
+    void onSaveOperatingHours(space.id, operatingHours).then((result) => {
+      setOperatingHoursSavingIds((current) => current.filter((id) => id !== space.id));
+      if (result.status === "error") {
+        setOperatingHoursNoticesById((current) => ({ ...current, [space.id]: { tone: "error", message: result.message } }));
+        return;
+      }
+      setDraftsById((current) => ({ ...current, [space.id]: { ...(current[space.id] ?? space), operatingHours } }));
+      setOperatingHoursNoticesById((current) => ({ ...current, [space.id]: { tone: "success", message: "운영시간을 저장했습니다." } }));
+    });
+  };
+
   return (
     <section className="min-w-0 rounded-lg border border-[#DDE8D6] bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -76,6 +217,16 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdmin
           const expanded = expandedSpaceIds.includes(space.id);
           const isSaving = savingSpaceIds.includes(space.id);
           const notice = noticesById[space.id];
+          const selectedFile = selectedFilesById[space.id];
+          const previewUrl = previewUrlsById[space.id];
+
+          const operatingHoursExpanded = operatingHoursOpenIds.includes(space.id);
+          const operatingHoursDraft = operatingHoursDraftById[space.id];
+          const isOperatingHoursSaving = operatingHoursSavingIds.includes(space.id);
+          const operatingHoursNotice = operatingHoursNoticesById[space.id];
+          const isOperatingHoursRangeInvalid = operatingHoursDraft !== undefined
+            && isCustomOperatingHoursRangeInvalid(operatingHoursDraft.startTime, operatingHoursDraft.endTime);
+
           return (
             <article key={space.id} className="rounded-lg border border-[#EBF2E7] p-3">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -149,6 +300,20 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdmin
                       className={inputClassName}
                     />
                   </Field>
+                  <SpaceImageUploadField
+                    selectedFile={selectedFile}
+                    previewUrl={previewUrl}
+                    onFileSelected={(file) => {
+                      const currentPreviewUrl = previewUrlsById[space.id];
+                      if (currentPreviewUrl !== undefined) {
+                        URL.revokeObjectURL(currentPreviewUrl);
+                      }
+                      setSelectedFilesById((current) => ({ ...current, [space.id]: file }));
+                      setPreviewUrlsById((current) => ({ ...current, [space.id]: URL.createObjectURL(file) }));
+                    }}
+                    onClearFile={() => clearSelectedFile(space.id)}
+                    helperText="파일을 선택하면 대표 이미지 URL 입력값 대신 업로드된 파일이 사용되며, 저장 버튼을 누르는 시점에 업로드됩니다."
+                  />
                   <div className="flex flex-wrap items-end gap-3 text-sm font-bold text-[#172014]">
                     <Checkbox label="활성" checked={draft.isActive} onChange={(checked) => updateDraft(setDraftsById, draft, { isActive: checked })} />
                     <Checkbox label="사용자 노출" checked={draft.isPublicVisible} onChange={(checked) => updateDraft(setDraftsById, draft, { isPublicVisible: checked })} />
@@ -190,7 +355,10 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdmin
                     <button
                       type="button"
                       disabled={isSaving}
-                      onClick={() => updateDraft(setDraftsById, space, space)}
+                      onClick={() => {
+                        clearSelectedFile(space.id);
+                        updateDraft(setDraftsById, space, space);
+                      }}
                       className="ui-button ui-button-ghost min-h-10 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       변경 취소
@@ -198,12 +366,61 @@ export function SpaceAdminEditor({ spaces, onSaveSpace, onAddSpace }: SpaceAdmin
                     <button
                       type="button"
                       disabled={isSaving}
-                      onClick={() => handleSave(draft, "공간 정보를 저장했습니다.")}
+                      onClick={() => handleSaveSpaceButtonClick(draft, space)}
                       className="ui-button ui-button-primary min-h-10 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       <Save size={15} strokeWidth={2.3} />
                       {isSaving ? "저장 중" : "수정 저장"}
                     </button>
+                  </div>
+
+                  <div className="mt-2 grid gap-2 rounded-lg border border-[#DDE8D6] bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-extrabold text-[#172014]">운영시간</p>
+                        <div className="mt-1 grid gap-0.5 text-xs font-semibold text-[#5B6856]">
+                          {summarizeOperatingHoursLines(draft.operatingHours).map((line) => (
+                            <p key={line}>{line}</p>
+                          ))}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleOperatingHoursEditor(draft)}
+                        className="ui-button ui-button-ghost min-h-9 px-3 py-2 text-xs"
+                      >
+                        {operatingHoursExpanded ? "운영시간 수정 닫기" : "운영시간 수정"}
+                      </button>
+                    </div>
+                    {operatingHoursExpanded && operatingHoursDraft !== undefined && (
+                      <>
+                        <OperatingHoursCustomFields
+                          startTime={operatingHoursDraft.startTime}
+                          endTime={operatingHoursDraft.endTime}
+                          closedDays={operatingHoursDraft.closedDays}
+                          onStartTimeChange={(value) => updateOperatingHoursDraft(space.id, { startTime: value })}
+                          onEndTimeChange={(value) => updateOperatingHoursDraft(space.id, { endTime: value })}
+                          onToggleClosedDay={(dayOfWeek) => toggleOperatingHoursClosedDay(space.id, dayOfWeek)}
+                          warningMessage={operatingHoursDraft.warningMessage}
+                        />
+                        {operatingHoursNotice !== undefined && (
+                          <div className={noticeClassName(operatingHoursNotice.tone)} role={operatingHoursNotice.tone === "error" ? "alert" : "status"}>
+                            {operatingHoursNotice.message}
+                          </div>
+                        )}
+                        <div className="flex justify-end">
+                          <button
+                            type="button"
+                            disabled={isOperatingHoursSaving || isOperatingHoursRangeInvalid}
+                            onClick={() => handleSaveOperatingHours(space)}
+                            className="ui-button ui-button-primary min-h-10 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <Save size={15} strokeWidth={2.3} />
+                            {isOperatingHoursSaving ? "저장 중" : "운영시간 저장"}
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
