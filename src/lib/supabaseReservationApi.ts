@@ -12,6 +12,7 @@ import {
   firstAdminVerificationRow,
   firstCancelReservationRow,
   firstParticipantVerificationRow,
+  firstSpaceImageRow,
   firstSpaceRow,
   mapAdminAccountRows,
   mapAdminApplicationRows,
@@ -24,13 +25,14 @@ import {
   mapReservationSessionRows,
   mapReservationSubmissionRowsToMeeting,
   mapReservationSubmissionRowsToSessions,
+  mapSpaceImageRows,
   type AdminApplicationRow,
   type OperatingHourRow,
   type SpaceImageRow,
   type SubmitReservationSessionInput,
   mapSpaceRows,
 } from "./supabaseMappers";
-import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, UserLevel } from "../types/reservation";
+import type { Admin, AdminApplication, AdminBlock, Meeting, OperatingHour, ParticipantUser, ReservationSession, Space, SpaceImage, UserLevel } from "../types/reservation";
 import type { PostgrestError } from "@supabase/supabase-js";
 
 type ReservationReadModel = {
@@ -794,6 +796,114 @@ export const updateAdminSpaceOperatingHours = async (
   }
 
   return { status: "ok", operatingHours: mapOperatingHourRows(rows) };
+};
+
+export type SpaceImageMutationResult =
+  | { readonly status: "ok"; readonly image: SpaceImage }
+  | { readonly status: "error"; readonly message: string };
+
+export const addSpaceImage = async (
+  admin: AdminCredentials,
+  spaceId: string,
+  imageUrl: string,
+  altText?: string,
+): Promise<SpaceImageMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("add_space_image", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_space_id: spaceId,
+    input_image_url: imageUrl,
+    input_alt_text: altText?.trim() ?? null,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("add_space_image RPC", response.error);
+    return { status: "error", message: toSpaceImageFailureMessage(response.error, SPACE_IMAGE_ADD_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstSpaceImageRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: SPACE_IMAGE_ADD_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", image: mapSpaceImageRows([row])[0] };
+};
+
+export const removeSpaceImage = async (
+  admin: AdminCredentials,
+  imageId: string,
+): Promise<SpaceImageMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("remove_space_image", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_image_id: imageId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("remove_space_image RPC", response.error);
+    return { status: "error", message: toSpaceImageFailureMessage(response.error, SPACE_IMAGE_REMOVE_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstSpaceImageRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: SPACE_IMAGE_REMOVE_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", image: mapSpaceImageRows([row])[0] };
+};
+
+export const setPrimarySpaceImage = async (
+  admin: AdminCredentials,
+  imageId: string,
+): Promise<SpaceImageMutationResult> => {
+  if (supabaseClient === undefined) {
+    return { status: "error", message: "Supabase 연결이 설정되지 않았습니다." };
+  }
+
+  const response = await supabaseClient.rpc("set_primary_space_image", {
+    input_admin_name: admin.name.trim(),
+    input_admin_phone: admin.phone.trim(),
+    input_image_id: imageId,
+  });
+
+  if (response.error !== null) {
+    warnSupabaseAuthError("set_primary_space_image RPC", response.error);
+    return { status: "error", message: toSpaceImageFailureMessage(response.error, SPACE_IMAGE_PRIMARY_GENERIC_FAILURE_MESSAGE) };
+  }
+
+  const row = firstSpaceImageRow(response.data);
+  if (row === undefined) {
+    return { status: "error", message: SPACE_IMAGE_PRIMARY_GENERIC_FAILURE_MESSAGE };
+  }
+
+  return { status: "ok", image: mapSpaceImageRows([row])[0] };
+};
+
+const SPACE_IMAGE_ADD_GENERIC_FAILURE_MESSAGE = "사진을 추가할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const SPACE_IMAGE_REMOVE_GENERIC_FAILURE_MESSAGE = "사진을 제거할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+const SPACE_IMAGE_PRIMARY_GENERIC_FAILURE_MESSAGE = "대표 사진을 지정할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+
+// add_space_image / remove_space_image / set_primary_space_image RPC가 raise exception으로 던진
+// 한국어 검증 메시지를 그대로 노출한다.
+const toSpaceImageFailureMessage = (error: PostgrestError, genericMessage: string): string => {
+  const parts = [
+    error.message.trim(),
+    error.details?.trim(),
+    error.hint?.trim(),
+  ].filter((part): part is string => part !== undefined && part.length > 0);
+
+  if (parts.length === 0) {
+    return genericMessage;
+  }
+  return parts.join(" / ");
 };
 
 const toOperatingHoursPayload = (hours: readonly OperatingHour[]) =>

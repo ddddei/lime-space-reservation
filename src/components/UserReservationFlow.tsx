@@ -186,6 +186,8 @@ export function UserReservationFlow(props: UserReservationFlowProps) {
 }
 
 function UserHero(props: UserReservationFlowProps) {
+  const remainingHours = props.eligibility.remainingBlocks / 2;
+  const totalHours = props.authenticatedUser.maxBlocks / 2;
   return (
     <section className="ui-card overflow-hidden rounded-2xl p-6 md:p-8">
       <div className="grid gap-6 lg:grid-cols-[1fr_360px] lg:items-end">
@@ -197,6 +199,13 @@ function UserHero(props: UserReservationFlowProps) {
           <p className="mt-5 max-w-2xl text-base leading-7 text-[#5B6856] md:text-lg">
             승인된 호스트만 제휴공간을 예약할 수 있습니다. 공간을 고르고, 날짜와 시간을 잇고, 모임을 시작하세요.
           </p>
+          <div
+            className={`mt-5 inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-black ${
+              remainingHours <= 0 ? "bg-[#FCEBEA] text-[#C9443E]" : "bg-[#E8F5DE] text-[#178A46]"
+            }`}
+          >
+            이번 시즌 남은 시간 {remainingHours}시간 / 전체 {totalHours}시간
+          </div>
         </div>
         <div className="ui-card-soft rounded-2xl p-5">
           <p className="text-xs font-black text-[#5F9820]">현재 Host</p>

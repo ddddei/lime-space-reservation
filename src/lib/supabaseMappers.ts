@@ -468,6 +468,15 @@ export const firstSpaceRow = (
   return data ?? undefined;
 };
 
+export const firstSpaceImageRow = (
+  data: SpaceImageRow | SpaceImageRow[] | null,
+): SpaceImageRow | undefined => {
+  if (Array.isArray(data)) {
+    return data[0];
+  }
+  return data ?? undefined;
+};
+
 export type CancelReservationRow = {
   readonly meeting_id: string;
   readonly meeting_status: string | null;
