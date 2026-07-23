@@ -54,3 +54,9 @@ SUPABASE_DISABLE_TELEMETRY=1 npm exec -- supabase db query --linked --file supab
 ```
 
 Supabase CLI의 linked DB query는 병렬 실행하지 않습니다. temp login role 초기화가 충돌할 수 있으므로 순차 실행합니다.
+
+## Discord 알림
+
+예약 신청/취소 알림은 `notification_config` 테이블의 `discord_webhook_url` 값으로 발송됩니다.
+채널을 바꾸려면 Discord에서 웹훅의 대상 채널을 수정하거나, 새 웹훅 URL로 해당 행을 갱신하세요.
+웹훅 URL은 비밀값이므로 저장소·문서에 붙여넣지 않습니다.
